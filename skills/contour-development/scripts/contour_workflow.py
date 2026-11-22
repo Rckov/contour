@@ -12,7 +12,8 @@ import sys
 import time
 import uuid
 
-from contour_ops import VERSION, CLIParser, Invalid, array, digest, load_json, obj, relative, require, string
+from contour_ops import (VERSION, CLIParser, Invalid, array, contour_directory, control_location,
+                         digest, fixed_git, load_json, obj, product_relative, require, storage_path, string)
 from contour_state import Controller, StateError
 from contour_verify import VerificationError, snapshot_candidate, supervise, validate_check
 
@@ -24,7 +25,7 @@ PUBLIC_REQUESTS = frozenset({"register", "transition", "revise", "adjust-budget"
 def write_json(path: Path, value: dict, *, replace: bool = False) -> None:
     data = (json.dumps(value, sort_keys=True, ensure_ascii=True, indent=2, allow_nan=False) + "\n").encode()
     require(len(data) <= 16 * 1024 * 1024, "Record exceeds 16 MiB")
-    path = Path(path)
+    path = storage_path(path)
     temporary = path.with_name(path.name + "." + uuid.uuid4().hex + ".partial")
     with temporary.open("xb") as stream:
         stream.write(data)
@@ -75,7 +76,7 @@ def validate_profile(profile: dict) -> dict:
     require(len(selections) <= 1, "Checks must share one complete input selection for this profile")
     selected = list(next(iter(selections))) if selections else checked.get("snapshot_paths", ["."])
     require(isinstance(selected, list) and 1 <= len(selected) <= 1000, "snapshot_paths must be a nonempty bounded list")
-    selected = sorted({relative(value, allow_dot=True) for value in selected})
+    selected = sorted({product_relative(value, allow_dot=True) for value in selected})
     require(checked.get("snapshot_paths", selected) == selected, "Profile and checks select different inputs")
     checked["snapshot_paths"] = selected
     context = checked.get("context7")
@@ -91,18 +92,19 @@ def validate_profile(profile: dict) -> dict:
     return checked
 
 
-def initialize(root: Path, workspace: Path, profile: dict) -> dict:
-    root = Path(root).resolve(strict=True)
+def initialize(root: Path, workspace: Path | None = None, profile: dict | None = None) -> dict:
+    root = storage_path(root)
     require(root.is_dir(), "Project root must be a directory")
-    workspace = Path(workspace).absolute()
-    require(not workspace.is_symlink(), "Workspace cannot be a symlink")
-    workspace = workspace.parent.resolve(strict=True) / workspace.name
-    require(workspace != root and root not in workspace.parents, "Place control state outside product inputs")
+    workspace = control_location(root, workspace if workspace is not None else root / ".contour" / "runtime")
     profile = validate_profile(profile)
     fingerprint = toolchain_digest()
     profile_identity = digest({"profile": profile, "toolchain_digest": fingerprint})
     config = {"schema_version": 1, "package_version": VERSION, "root": str(root),
               "profile": profile, "toolchain_digest": fingerprint, "profile_digest": profile_identity}
+    local = workspace.is_relative_to(root)
+    if local:
+        contour_directory(root, create=True)
+    require(workspace.parent.is_dir(), "Control workspace parent must exist")
     reused = workspace.exists()
     if reused:
         require(workspace.is_dir(), "Control workspace must be a directory")
@@ -122,7 +124,7 @@ def initialize(root: Path, workspace: Path, profile: dict) -> dict:
         require(not any(workspace.iterdir()),
                 "An uninitialized nonempty workspace needs reconciliation; existing files were preserved")
         write_json(workspace / "project.json", config)
-    directories = [workspace / name for name in ("runs", "packets", "git")]
+    directories = [workspace / name for name in ("runs", "packets")]
     for path in directories:
         require(not path.is_symlink() and (not path.exists() or path.is_dir()),
                 "Runtime path must be a real directory: " + path.name)
@@ -144,7 +146,8 @@ def initialize(root: Path, workspace: Path, profile: dict) -> dict:
 
 
 def open_project(workspace: Path, *, require_current: bool = True):
-    workspace = Path(workspace).resolve(strict=True)
+    workspace = storage_path(workspace)
+    require(workspace.is_dir(), "Control workspace must be a directory")
     config = obj(load_json(workspace / "project.json"), "project configuration")
     require(type(config.get("schema_version")) is int and config["schema_version"] == 1, "Unsupported workspace schema")
     profile = validate_profile(config.get("profile"))
@@ -152,8 +155,11 @@ def open_project(workspace: Path, *, require_current: bool = True):
             "Stored profile digest mismatch")
     if require_current:
         require(config["toolchain_digest"] == toolchain_digest(), "Toolchain changed; review and reconfigure before continuing")
-    root = Path(config["root"]).resolve(strict=True)
-    require(workspace != root and root not in workspace.parents, "Workspace is inside product inputs")
+    root = storage_path(config["root"])
+    require(root.is_dir(), "Project root must be a directory")
+    control_location(root, workspace)
+    for name in ("runs", "packets"):
+        require(storage_path(workspace / name).is_dir(), "Runtime path must be a real directory: " + name)
     controller = Controller(workspace / "state.sqlite3")
     project = controller.status()["project"]
     require(project["root"] == str(root) and project["project_id"] == profile["project_id"],
@@ -178,21 +184,26 @@ def task_root(workspace: Path, root: Path, controller: Controller, task_id: str 
               explicit: str | None = None) -> Path:
     if explicit is None and task_id is not None:
         explicit = controller.status(task_id)["task"].get("workspace_root", str(root))
-    candidate = Path(explicit or root).resolve(strict=True)
+    candidate = storage_path(explicit or root)
+    require(candidate.is_dir(), "Task workspace must be an existing directory")
     if candidate == root:
         return candidate
-    records = sorted((workspace / "git").glob("*/result.json"))
-    require(len(records) <= 1000, "Worktree record budget exceeded")
-    for path in records:
-        record = load_json(path)
-        if record.get("status") == "CREATED" and record.get("root") == str(root) and record.get("destination") == str(candidate):
-            from contour_git import repository, _git
-            repository(candidate)
-            original_common = Path(_git(root, ["rev-parse", "--path-format=absolute", "--git-common-dir"])["stdout"].strip()).resolve()
-            candidate_common = Path(_git(candidate, ["rev-parse", "--path-format=absolute", "--git-common-dir"])["stdout"].strip()).resolve()
-            require(original_common == candidate_common, "Recorded worktree no longer belongs to this repository")
-            return candidate
-    raise Invalid("Task workspace is not the project root or a recorded prepared worktree")
+    # The host owns Git mutations. Bind an existing native worktree to this
+    # project without trusting a directory name or a caller-written receipt.
+    def git_path(directory, option):
+        value = fixed_git(directory, ["rev-parse", "--path-format=absolute", option])
+        return Path(os.fsdecode(value.removesuffix(b"\n"))).resolve()
+
+    for directory in (root, candidate):
+        require(git_path(directory, "--show-toplevel") == directory,
+                "Assign the actual Git worktree root")
+    require(git_path(root, "--git-common-dir") == git_path(candidate, "--git-common-dir"),
+            "Task workspace does not belong to this repository")
+    records = fixed_git(root, ["worktree", "list", "--porcelain", "-z"]).split(b"\0")
+    registered = {Path(os.fsdecode(record[9:])).resolve() for record in records
+                  if record.startswith(b"worktree ")}
+    require(candidate in registered, "Task workspace is not a registered worktree")
+    return candidate
 
 
 def apply_request(workspace: Path, request: dict) -> dict:
@@ -358,62 +369,6 @@ def finish_host(workspace: Path, request: dict) -> dict:
     return result
 
 
-def prepare_git(workspace: Path, request: dict, *, merge: bool = False) -> dict:
-    obj(request, "Git request")
-    from contour_git import create_worktree, integrate, require_cooperative_git
-    workspace, root, config, controller = open_project(workspace)
-    request = dict(request)
-    destination = Path(request.pop("destination")).absolute()
-    base = request.pop("base")
-    commits = request.pop("commits", [])
-    allowed_paths = request.pop("allowed_paths", [])
-    require_cooperative_git(root)
-    selected_root = task_root(workspace, root, controller, request.get("task_id"))
-    require(not set(request) & {"op", "category", "operation_id", "profile_digest", "candidate_digest", "criterion_ids",
-                               "workspace_destination"},
-            "Git operation admission fields are prepared")
-    request.update({"op": "begin-attempt", "category": "integration", "criterion_ids": [],
-                    "operation_id": "git-integrate" if merge else "git-worktree",
-                    "workspace_destination": str(destination),
-                    "profile_digest": config["profile_digest"],
-                    "candidate_digest": current_candidate(selected_root, config)["digest"]})
-    admission = controller.apply(request)
-    if admission.get("replayed"):
-        return {"status": "RECONCILE", "admission": admission,
-                "reason": "Inspect the recorded worktree and Git operation before retry."}
-    attempt = admission["attempt"]
-    destination = Path(attempt["binding"]["workspace_destination"])
-    started = time.monotonic()
-    record_dir = workspace / "git" / attempt["attempt_id"]
-    if merge:
-        result = integrate(root, destination, base, commits, allowed_paths, record_dir)
-    else:
-        require(not commits and not allowed_paths, "Worker worktree creation does not accept integration commits")
-        result = create_worktree(root, destination, base, record_dir)
-    success = result["status"] in {"CREATED", "CANDIDATE"}
-    receipt = {"schema_version": 1, "origin": "HOST_OBSERVED", "kind": "integration",
-               "binding": attempt["binding"], "status": "PASS" if success else "FAIL",
-               "completed": True, "duration_seconds": time.monotonic() - started,
-               "candidate_before": attempt["binding"]["candidate_digest"],
-               "candidate_after": current_candidate(selected_root, config)["digest"],
-               "witness_ref": str(record_dir / ("integration-result.json" if merge else "result.json")),
-               "result": result}
-    task = admission["task"]
-    finish = controller.apply({"op": "finish-attempt", "request_id": uuid.uuid4().hex,
-        "task_id": request["task_id"], "expected_revision": task["revision"], "expected_seq": task["seq"],
-        "worker_id": request["worker_id"], "generation": request["generation"],
-        "attempt_id": attempt["attempt_id"], "receipt": receipt})
-    if success:
-        actual_root = task_root(workspace, root, controller, explicit=str(destination))
-        task = finish["task"]
-        assigned = controller.apply({"op": "update-candidate", "request_id": uuid.uuid4().hex,
-            "task_id": request["task_id"], "expected_revision": task["revision"], "expected_seq": task["seq"],
-            "candidate_digest": current_candidate(actual_root, config)["digest"],
-            "profile_digest": config["profile_digest"], "workspace_root": str(actual_root),
-            "assignment_ref": receipt["witness_ref"], "reason": "Use the actual prepared worktree for implementation and verification"})
-        return {"status": "OK", "operation": result, "controller": assigned,
-                "verification": "REQUIRED_ON_ASSIGNED_WORKSPACE", "acceptance": "NOT_DECIDED"}
-    return {"status": "STOPPED", "operation": result, "controller": finish}
 
 
 def _reconfigure_locked(workspace: Path, request: dict) -> dict:
@@ -455,7 +410,7 @@ def _reconfigure_locked(workspace: Path, request: dict) -> dict:
 def reconfigure(workspace: Path, request: dict) -> dict:
     obj(request, "reconfiguration request")
     """Serialize cooperative profile-file and database replacement on Linux."""
-    workspace = Path(workspace).resolve(strict=True)
+    workspace = open_project(workspace, require_current=False)[0]
     lock_path = workspace / "reconfigure.lock"
     descriptor = os.open(lock_path, os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600)
     try:
@@ -516,11 +471,11 @@ def main(argv=None):
     parser = CLIParser(description=__doc__)
     parser.add_argument("--version", action="version", version=VERSION)
     commands = parser.add_subparsers(dest="command", required=True)
-    init = commands.add_parser("init", help="Initialize a reviewed profile outside product inputs")
+    init = commands.add_parser("init", help="Initialize a reviewed profile in root .contour/runtime")
     init.add_argument("--root", required=True)
-    init.add_argument("--workspace", required=True)
+    init.add_argument("--workspace", help="Control directory; defaults to <root>/.contour/runtime (external paths remain supported)")
     init.add_argument("--profile", required=True)
-    for command in ("request", "check", "plan", "worker-packet", "review-packet", "host-result", "worktree", "integrate", "reconfigure"):
+    for command in ("request", "check", "plan", "worker-packet", "review-packet", "host-result", "reconfigure"):
         sub = commands.add_parser(command)
         sub.add_argument("--workspace", required=True)
         sub.add_argument("--file", required=True)
@@ -532,14 +487,13 @@ def main(argv=None):
     status.add_argument("--task-id")
     args = parser.parse_args(argv)
     if args.command == "init":
-        result = initialize(Path(args.root), Path(args.workspace), load_json(args.profile))
+        result = initialize(Path(args.root), Path(args.workspace) if args.workspace else None, load_json(args.profile))
     elif args.command == "status":
         result = open_project(Path(args.workspace), require_current=False)[3].status(args.task_id)
     else:
         operation = {"request": apply_request, "check": run_check, "plan": run_plan,
                      "worker-packet": prepare_host, "review-packet": lambda workspace, request: prepare_host(workspace, request, review=True),
-                     "host-result": finish_host, "worktree": prepare_git,
-                     "integrate": lambda workspace, request: prepare_git(workspace, request, merge=True),
+                     "host-result": finish_host,
                      "reconfigure": reconfigure}[args.command]
         result = operation(Path(args.workspace), load_json(args.file))
     displayed = compact_result(result, args.command) if getattr(args, "view", "full") == "compact" else result

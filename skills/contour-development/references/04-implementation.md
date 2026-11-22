@@ -8,11 +8,11 @@ Input: the current task, authorized change, behavior to preserve, write scope, a
 
 Reconcile the basis and other people's changes. Make a sufficient, cohesive change. Do not format or revert unrelated work. Consider affected dimensions of behavior: type and shape, absence/null/empty values, error channel and timing, asynchronous behavior and cancellation, order and completeness, number of effects, reference identity, resources and concurrency, serialization, and existing consumers.
 
-Use project commands. A new scanner, runner, or one-off program does not become a product test merely by being named one. An ordinary regression test checks a product criterion in the established framework and authorized environment. For new auxiliary code, identify the catalog gap, inputs, outputs, effects, benefit, and verification; reuse existing scoped authorization or request only what is missing.
+Use project commands. An ordinary regression test checks a product criterion in the established framework and authorized environment. A new scanner, shared runner, bulk service poller or control program remains auxiliary automation even when called a test. For new auxiliary code, identify the actual tool gap, inputs, outputs, effects, benefit, and verification; reuse existing scoped authorization or request only what is missing. Keep implementation notes and diagnostic reports in `.contour/`; product code and tests belong in their established locations.
 
 ## Diagnosis
 
-1. Record the symptom, conditions, expected behavior, and behavior to preserve.
+1. Establish the symptom, conditions, expected behavior, and behavior to preserve; retain observations in the existing work record when needed for continuation.
 2. Distinguish a product defect from a runner, fixture, or environment failure and from an empty selection. A missing command is not a reproduced RED result.
 3. State a causal hypothesis and an observation that distinguishes it from alternatives. Use current sources. When external documentation is needed, follow the preparation procedure for versioned documentation.
 4. Perform a bounded, authorized check. Compare the baseline using relevant data, configuration, and the user's original changes. Do not reset the working tree; account for shared worktree resources.

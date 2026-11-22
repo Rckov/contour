@@ -28,6 +28,8 @@ MAX_FILES = 20000
 STATUSES = {"PASS", "FAIL", "INCOMPLETE", "NOT_RUN", "INCONCLUSIVE"}
 STATES = {"clarifying", "ready", "running", "proposed", "accepted", "blocked", "paused", "closed"}
 ENDPOINTS = {"analysis", "demo", "patch", "integrated", "release-ready", "deployed", "observed"}
+CONTOUR_DIR = ".contour"
+ADMIN_EXCLUSIONS = [CONTOUR_DIR + "/"]
 
 
 class Invalid(ValueError):
@@ -115,6 +117,86 @@ def relative(value, allow_dot=False):
     return normalized
 
 
+def product_relative(value, allow_dot=False):
+    """The root administrative subtree is never a product input or write scope."""
+    name = relative(value, allow_dot=allow_dot)
+    parts = PurePosixPath(name).parts
+    require(not parts or parts[0] != CONTOUR_DIR,
+            "Root .contour is reserved for Contour state, not product inputs")
+    return name
+
+
+def storage_path(value):
+    """Validate lexical ancestors before resolving a path used for local writes.
+
+    This rejects accidental aliases and traversal; it is not a same-user race
+    isolation mechanism. Missing descendants are allowed for exclusive creation.
+    """
+    path = Path(value).absolute()
+    require(".." not in path.parts, "Parent traversal is not a storage path")
+    current = Path(path.anchor)
+    for component in path.parts[1:]:
+        current /= component
+        require(not current.is_symlink(), "Storage path must not contain symlinks: " + str(current))
+        if current != path:
+            require(not current.exists() or current.is_dir(),
+                    "Storage ancestor must be a directory: " + str(current))
+    return path.resolve()
+
+
+def contour_directory(root, *, create=False):
+    """Keep a local ignore policy without changing any existing user policy."""
+    root = storage_path(root)
+    require(root.is_dir(), "Project root must be a directory")
+    directory = storage_path(root / CONTOUR_DIR)
+    require(not directory.exists() or directory.is_dir(), "Root .contour must be a real directory")
+    if not create:
+        return directory
+    ignore = storage_path(directory / ".gitignore")
+    require(not ignore.exists() or ignore.is_file(), ".contour/.gitignore must be a regular file")
+    directory.mkdir(mode=0o700, exist_ok=True)
+    if not ignore.exists():
+        fd = os.open(ignore, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(b"*\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+    for path in (directory, root):
+        descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0))
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+    return directory
+
+
+def control_location(root, value):
+    """Allow reserved project storage and compatible external workspaces only."""
+    root, target = storage_path(root), storage_path(value)
+    administrative = contour_directory(root)
+    require(target != root and not root.is_relative_to(target),
+            "Control storage cannot contain the project root")
+    if target.is_relative_to(root):
+        require(target != administrative and target.is_relative_to(administrative),
+                "Control storage inside the project must be below root .contour")
+        for ancestor in target.parents:
+            if ancestor == administrative:
+                break
+            if (ancestor / ".git").exists():
+                require(target.is_relative_to(ancestor / CONTOUR_DIR),
+                        "Control storage cannot be inside a worktree's product files")
+    return target
+
+
+def new_control_location(root, value):
+    target = control_location(root, value)
+    require(not target.exists(), "The destination must not already exist")
+    require(target.parent.is_dir(), "The destination parent must be an existing directory")
+    return target
+
+
+
+
 def safe_file(root, name):
     name = relative(name)
     p = root
@@ -167,17 +249,20 @@ def doctor(args):
 
 def selected_files(root, paths, deadline=None):
     deadline = deadline if deadline is not None else time.monotonic() + 30
+    contour_directory(root)
     if not paths:
         top = fixed_git(root, ["rev-parse", "--show-toplevel"])
         require(Path(os.fsdecode(top).strip()).resolve() == root, "git-visible mode requires repository root")
-        data = fixed_git(root, ["ls-files", "-z", "--cached", "--others", "--exclude-standard"])
+        data = fixed_git(root, ["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--",
+                                ".", ":(top,exclude,literal).contour"])
         names = {os.fsdecode(n) for n in data.split(b"\0") if n}
-        names = {n for n in names if (root / n).exists() or (root / n).is_symlink()}
+        names = {n for n in names if PurePosixPath(n).parts[0] != CONTOUR_DIR
+                 and ((root / n).exists() or (root / n).is_symlink())}
         require(len(names) <= MAX_FILES, "more than 20000 selected files; narrow scope")
         return sorted(names)
     names = set()
     for selected in paths:
-        name = relative(selected, allow_dot=True)
+        name = product_relative(selected, allow_dot=True)
         p = root if name == "." else root / name
         current = root
         for component in PurePosixPath(name).parts:
@@ -193,14 +278,15 @@ def selected_files(root, paths, deadline=None):
                 raise Invalid(f"directory discovery failed: {error}")
             for directory, dirs, files in os.walk(p, followlinks=False, onerror=walk_error):
                 require(time.monotonic() <= deadline, "file discovery budget exceeded")
-                dirs[:] = [d for d in dirs if d != ".git"]
+                at_root = Path(directory) == root
+                dirs[:] = [d for d in dirs if d != ".git" and not (at_root and d == CONTOUR_DIR)]
                 for d in list(dirs):
                     dp = Path(directory) / d
                     if dp.is_symlink():
                         names.add(dp.relative_to(root).as_posix())
                         dirs.remove(d)
                 for filename in files:
-                    if filename != ".git":
+                    if filename != ".git" and not (at_root and filename == CONTOUR_DIR):
                         names.add((Path(directory) / filename).relative_to(root).as_posix())
                 require(len(names) <= MAX_FILES, "more than 20000 selected files; narrow scope")
     return sorted(names)
@@ -242,7 +328,7 @@ def hash_file(root, name, deadline=None):
 def snapshot(args):
     root = root_path(args.root)
     string(args.project_id, "project id")
-    paths = sorted({relative(p, allow_dot=True) for p in args.path})
+    paths = sorted({product_relative(p, allow_dot=True) for p in args.path})
     start = time.monotonic()
     names = selected_files(root, paths, start + 30)
     files, issues, total = {}, [], 0
@@ -265,11 +351,13 @@ def snapshot(args):
     except (Invalid, OSError) as exc:
         issues.append(str(exc))
     body = {"schema_version": 1, "project_id": args.project_id,
-            "selection": {"mode": "explicit" if paths else "git-visible", "paths": paths}, "files": files}
+            "selection": {"mode": "explicit" if paths else "git-visible", "paths": paths,
+                          "excluded_subtrees": list(ADMIN_EXCLUSIONS)}, "files": files}
     return {**body, "status": "INCOMPLETE" if issues else "OBSERVED", "digest": digest(body),
             "root": str(root), "issues": issues, "selected_count": len(names), "hashed_count": len(files),
             "absent_explicit_paths": [p for p in paths if not (root / p).exists()],
             "limitations": ["Observation is not an atomic/isolation snapshot.",
+                            "Only root .contour/ is reserved administrative state; do not store product inputs there.",
                             "External state, environment and dependency behavior are not hashed.",
                             "Git-visible excludes ignored files and does not recurse into submodules; select relevant inputs explicitly."]}
 
@@ -282,7 +370,7 @@ def checked_snapshot(value):
     files = obj(s.get("files"), "snapshot.files")
     require(len(files) <= MAX_FILES, "too many snapshot entries")
     for name, record in files.items():
-        require(relative(name) == name, "noncanonical snapshot path")
+        require(product_relative(name) == name, "noncanonical snapshot path")
         obj(record, name)
         hex_digest(record.get("sha256"), name)
         integer(record.get("size"), "size")
@@ -292,7 +380,9 @@ def checked_snapshot(value):
     paths = array(selection.get("paths"), "selection.paths")
     require(bool(paths) == (selection["mode"] == "explicit"), "selection mode/paths mismatch")
     for p in paths:
-        relative(p, allow_dot=True)
+        product_relative(p, allow_dot=True)
+    if "excluded_subtrees" in selection:
+        require(selection["excluded_subtrees"] == ADMIN_EXCLUSIONS, "unsupported snapshot exclusion policy")
     body = {k: s[k] for k in ("schema_version", "project_id", "selection", "files")}
     require(s.get("digest") == digest(body), "snapshot digest mismatch")
     require(not s.get("issues"), "snapshot reports unresolved issues")
@@ -314,7 +404,7 @@ def scope(args):
             "scope observations must have the same project and selection policy")
     require(bool(args.allow), "provide at least one explicit --allow file or directory/")
     for rule in args.allow + args.protect:
-        relative(rule, allow_dot=True)
+        product_relative(rule, allow_dot=True)
     changes = []
     for name in sorted(before["files"].keys() | after["files"].keys()):
         old, new = before["files"].get(name), after["files"].get(name)

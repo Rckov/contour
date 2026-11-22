@@ -2,7 +2,7 @@
 
 Contour 1.0, 22 November 2026. Purpose: connect software work with the result the user needs, the current basis for acting and evidence of completion. Work may involve understanding a system, resolving a decision, changing it or carrying a complete product through release and support. One agent or several may perform it. Responsibilities apply according to the actual consequences; task labels do not prescribe a workflow.
 
-The skill provides the working instructions, engineering procedures and prepared operations. Technical guarantees depend on the host, the chosen tools and the evidence for the current task.
+The skill provides working instructions, linked engineering procedures and optional prepared operations. This reference owns the common rules; the procedures own their detailed engineering steps. Load the section needed for the current decision rather than rereading the full method. Technical guarantees depend on the host, chosen tools and evidence for the current task.
 
 ## Contents
 
@@ -76,7 +76,17 @@ These are responsibilities that may be combined. Mutual review by two agents usi
 
 ## 4 Maintained sources and working records
 
-Treat project context as the decisions and facts that survive a task. Start where the project maintains them. For the current assignment, identify which of those facts constrain the requested change, what evidence would settle the remaining questions and who needs the result. On handoff, update the source that owns a changed fact and link the unfinished obligation from the existing work record. The [optional source map](../assets/project-profile.example.json) illustrates this distinction using a connected application.
+Treat project context as decisions and facts that survive a task. Start with the existing project sources and identify which facts constrain the assignment, what evidence would settle the remaining questions and who needs the result. Update actual product sources when the assignment changes their content; link them from the work record rather than duplicating them. The [optional source map](../assets/project-profile.example.json) illustrates this distinction using a connected application.
+
+Keep every Contour-created project plan, decision note, handoff, review note, report and execution record under the project's root `.contour/`. Create a record only when another session, worker, shared owner or interrupted effect needs durable continuity. Usually maintain one concise `.contour/work.md` or an existing record there: current outcome and constraints, material decisions and reasons, evidence links and limits, open obligations and owners, active processes/effects, and next permitted step. Preserve relevant authorization and expenditure when they affect continuation. Use sections or links as needed; do not create one document per activity or copy the transcript.
+
+Keep the installed skill outside application scaffolding. Product source, product tests, consumer API documentation and requested product guides remain in their established project locations. Existing tickets, conversations and CI are useful sources; refer to them without scattering new methodology records into those systems or the project root. An equivalent durable platform log may own an external-effect record without a duplicate local journal.
+
+When first creating `.contour/`, ensure it is a real directory and create `.contour/.gitignore` with `*` only if that file does not exist. Preserve existing records and ignore policy; do not change the root `AGENTS.md` or `.gitignore` as part of method setup. Keep journals, databases, logs, secrets and machine-specific state local by default. Version selected durable notes only through a deliberate project decision, using a reviewed local ignore exception or explicit staging of those files. Ignoring a file does not remove a copy already tracked by Git.
+
+The optional local workflow uses `.contour/runtime/` for configuration, SQLite state, runs and packets. Native Git or host tools create isolated working copies under `.contour/worktrees/` only when the work needs them. Product snapshots declare and exclude only the reserved root `.contour/` subtree, so never put material product inputs there. Other ignored inputs and nested product directories named `.contour` retain their usual selection semantics. Root `.contour` and storage ancestors must not be symlinks. Resolve an existing product-input conflict before enabling this exclusion; never discard files merely to fit the layout.
+
+Git cloning does not carry ignored records or live processes. For a new session or environment, deliberately carry the current work record and necessary project facts within `.contour/`, then reconcile them with the actual checkout, environment and any unfinished effects. A full controller transfer additionally needs consistent state and its referenced artifacts. Missing history remains unknown; do not reconstruct approvals, outcomes or spend from guesses.
 
 | Logical source | Content | Consumer |
 |---|---|---|
@@ -89,7 +99,7 @@ Treat project context as the decisions and facts that survive a task. Start wher
 | Release record | Contents, environment, configuration, data, compatibility, continuation, stopping, recovery, and observation | Release and operations |
 | Problem and obligation register | Defect, risk, debt, workaround, owner, and condition for reconsideration | Subsequent deliveries and ongoing support |
 
-These are information responsibilities where applicable, not eight files or fields to complete for every request. The request, conversation, source, issue, Git or CI may already contain the relevant facts. Keep one maintained location for each applicable fact; link rather than duplicate it. A bounded source question does not create a product profile or release record. Preserve durable records when another executor, interruption, competing ownership or an external effect needs them. Closing a work record does not delete a requirement that remains in force. Preserve decision history while keeping the current basis accessible.
+These are information responsibilities, not eight files or fields to complete for every request. Keep one maintained location for each applicable fact and link to it. A bounded source question does not create a product profile or release record. Closing a work record does not delete a continuing requirement. Preserve material decision history while keeping the current basis accessible.
 
 API documentation describes the consumer contract. Architecture and operations records preserve the reasons for decisions and the actions needed. Automatic retelling of internal algorithms is outside the scope of API documentation.
 
@@ -135,7 +145,7 @@ Sequence: record the observation; distinguish a code defect from a decision erro
 
 The coordinator autonomously performs local technical restructuring, searches for additional call sites, and includes files necessary for implementation when these actions fit the goal and the user's explicit boundaries. A new external action, a changed product commitment, or a changed material constraint requires the corresponding authority. An exception must not silently weaken a higher-level rule or a mandatory environment check.
 
-The permission register retains the basis and material scope: outcome, resource, environment, effect type, and limits. Resumption does not itself revoke permission. When material parameters change, check whether the existing permission covers them. Any repeat question concerns only the new difference.
+Retain the authority basis and material scope where continuation needs it: outcome, resource, environment, effect type, and limits. An existing authorization reference in the work record is sufficient; no separate permission register is required. Resumption does not itself revoke permission. When material parameters change, check whether existing permission covers them. Any repeat question concerns only the uncovered difference.
 
 ## 7 Subagent assignments and integration
 
@@ -174,7 +184,7 @@ Attempt counts and expenditure carry across sessions, executors, and revisions. 
 
 ## 9 Resuming after an interruption
 
-A resumption checkpoint preserves the task and revision; current intent; plan and owners; artifacts and uncommitted changes; decisions and assumptions; evidence and gaps; active processes; known and unknown effects; expenditure; and the next permitted step. Recovery does not require the model's internal chain of thought.
+A resumption checkpoint in the existing `.contour` record preserves the task and revision; current intent; plan and owners; artifacts and uncommitted changes; decisions and assumptions; evidence and gaps; active processes; known and unknown effects; expenditure; and next permitted step. Carry only the applicable facts and links needed for safe continuation. Recovery does not require the model's internal chain of thought.
 
 On resumption, the executor checks that references are accessible and inspects the actual state of the repository, environment, and processes. Reconcile the outcomes of mutations already initiated and check for a competing previous owner. If an outcome cannot be established, preserve its unknown status and apply the conditions in section 8 only to the affected action. Check that sources, authority, and evidence remain current. Then select the appropriate active state and continue only the work that is needed.
 
@@ -202,7 +212,7 @@ Memory separates accepted obligations, the actual state of work, and derived sum
 
 The methodology defines goals, responsibilities, and process; rules establish mandatory constraints; skills bring needed procedures into context; commands execute mechanical operations; the environment enforces actual permissions. One layer does not substitute for another. The Agent Skills format supports progressive loading of instructions and resources, but its experimental `allowed-tools` field is not a portable access boundary. [Agent Skills specification](https://agentskills.io/specification).
 
-The Contour entry point contains a short work map and critical invariants. Load domain procedures according to the task and its consequences. An internal module does not get a separate automatic trigger when the coordinator is supposed to call it within another procedure. Do not install the original donor and its adaptation together as competing skills.
+The Contour entry point contains a short work map and critical invariants. Load domain procedures according to the task and its consequences. An internal module does not get a separate automatic trigger when the coordinator is supposed to call it within another procedure. Use the internal adaptations without loading upstream donor instructions as competing procedures; this does not require changing the user's installed skills.
 
 Every procedure describes:
 
@@ -253,7 +263,7 @@ Being prepared does not mean remaining safe indefinitely: check the actual confi
 
 The host's required tool-call envelope for directly invoking an authorized operation is an ordinary invocation. It does not grant permission to add scanning, transformation, branching or other newly generated auxiliary logic. Judge the computation and effects, not whether the host expresses a call as JSON or a short code wrapper.
 
-**The exception for new auxiliary code** requires a specific catalog gap, an explanation of the benefit, the intended read/write scope and external effects, verification conditions, and explicit permission from the authorized owner. Permission may cover a defined class of experiments in advance; the agent must not expand it independently or ask again within the same boundaries. Before asking, complete the available useful preparation needed to assess that specific decision. Independent authorized work within the current bounded step continues; do not postpone a ready, concrete question until the entire backlog is complete.
+**New auxiliary code** requires a specific tool gap, a benefit, intended read/write scope and external effects, verification conditions, and explicit owner authorization. That permission may already cover a defined class of experiments or assigned script development; use it without asking again. Do not expand it independently. When permission is missing, first complete the useful preparation needed to make that decision concrete. Continue independent authorized work; do not postpone a ready question until an unrelated backlog is complete.
 
 Assess a file, heredoc, inline Python, shell pipeline, and code inside Code Mode by their computation and effects. The form in which code is written is not a bypass. An ordinary invocation of an approved command with authorized arguments is not a new script. Product code and necessary changes to its checks may be part of the assigned development; this is not blanket permission to change the controlling runner. If development of the script itself is explicitly assigned, permission for that development has already been granted; execution of external effects and admission to the trusted catalog are checked separately. Resolve ambiguous classification by the code's role, not its file extension.
 
@@ -271,64 +281,43 @@ Compare the efficiency of direct calls, prepared operations, and authorized comp
 
 ## 13 Architecture and choosing the next work
 
-A large application starts with an overview of the full accepted goal: users, primary scenarios, constraints, data, external participants, and endpoint. Increase design detail for the next delivery and for commitments that will be expensive to change later. The first end-to-end delivery tests the foundation; it does not reduce the agreed product to a minimal demonstration.
+Use the [design procedure](03-design.md) for material decisions, shared interfaces and data, costly uncertainty, quality scenarios and connected deliveries. Start a large application from the full accepted goal: users, primary scenarios, constraints, data, external participants and completion target. Detail the next delivery and commitments that will be expensive to change. The first end-to-end delivery tests the foundation without reducing the agreed product to a demonstration.
 
-The design procedure establishes:
+Preserve the decision's reasons, consequences, alternatives, owner, status and trigger for reconsideration. An existing implementation may impose compatibility obligations without defining the intended target. Application size alone does not justify microservices, a new framework or a rewrite. Agree on semantics and the current shared basis before dependent parallel work; adjacent agents must not guess the same contract independently. Integration checks use real interfaces, not merely compatible stubs.
 
-1. Drivers: which user outcome or constraint affects a material choice, and what is confirmed versus proposed.
-2. Responsibility boundaries and data: source of truth, write authority, identity, states, invariants, transactions, and derived copies.
-3. Shared contracts: operation semantics, units, errors, effects, compatibility, ordering, and retry behavior where applicable.
-4. Material qualities: stimulus, conditions, expected response, and a justified measure of the result. A threshold without a basis remains a proposal.
-5. Investigation of costly unknowns: the question, authorized experiment, discriminating observation, budget, and decision if the result is negative.
-6. The plan for end-to-end deliveries, their dependencies, integration owners, and necessary checks at interfaces.
+Choose the next action by the gap it resolves. A source question needs a supported conclusion; a suspected defect needs discriminating evidence; a missing shared decision needs agreed semantics before dependents implement it; an unverified result needs the missing check. These can coexist in one assignment. Do not turn them into a task classifier or require all of them for every request. Consequences determine depth: a small authorization change can need more scrutiny than a large independent screen.
 
-A material decision retains its reasons and consequences, alternatives, status, and trigger for reconsideration. The system's existing structure is an observation that may create a compatibility obligation; it is not automatically accepted intent. Microservices, a new framework, and a complete rewrite require a connection to a driver; application size alone does not prescribe them.
+Defer a local decision when doing so does not force consumers to make incompatible assumptions. Reconsider affected work when material new facts appear and preserve compatible results. Record any dynamic relationships that available architecture checks cannot cover.
 
-For shared components, agree on semantic interfaces and the current version of the underlying basis before parallel execution. Every assignment has inputs/outputs, boundaries, properties to preserve, and acceptance conditions. Adjacent agents must not independently guess the same contract. Two compatible stubs do not demonstrate real integration.
-
-Select the next work by the gap it resolves. If a question is answerable from current sources, inspect them and give the bounded conclusion. If behavior violates an accepted requirement, distinguish plausible causes before changing it. If a shared decision is missing, resolve the semantics needed by its consumers before dependent implementation. If the result exists but its behavior is unconfirmed, obtain the missing evidence. An interruption or unexpected observation may change which of these actions is appropriate.
-
-These choices can coexist in one assignment. Do not turn them into an exhaustive classifier or require all of them for every request. Consequences determine depth: a small authorization change may need more scrutiny than a large independent screen. For applicable UIs, check the main path, loading, empty state, error, retry, input preservation and accessibility. Automated accessibility checks do not replace the entire evaluation of user interaction.
-
-A deferred decision is acceptable when it is local and does not force dependent parties to assume incompatible things. Material new information triggers controlled reconsideration, not an unplanned change of direction. Architecture checks use existing project tools and explicitly identify dynamic relationships they do not cover.
-
-Basis for the approach: [SEI QAW](https://www.sei.cmu.edu/library/quality-attribute-workshops-qaws-third-edition/) for quality attribute scenarios; [Google AIP-180](https://google.aip.dev/180) for different aspects of compatibility; [W3C evaluation](https://www.w3.org/WAI/test-evaluate/) for the limits of automated accessibility evaluation. The specific procedures above are Contour's design, not a claim of compliance with an industry standard.
+The procedure draws on [SEI QAW](https://www.sei.cmu.edu/library/quality-attribute-workshops-qaws-third-edition/) for quality scenarios, [Google AIP-180](https://google.aip.dev/180) for compatibility, and [W3C evaluation guidance](https://www.w3.org/WAI/test-evaluate/) for the limits of automated accessibility checks. These are sources for individual practices, not a claim of compliance with an industry standard.
 
 ## 14 Checks, review, and acceptance
 
-Distinguish the fact that a check occurred, the sufficiency of the checking method, and the acceptance decision. Verification relates a result to an established requirement; validation relates it to intended user use. The selected endpoint determines which conclusions are needed. Inspection, analysis, and demonstration may be appropriate checks; a new automated test is not required for every reversible edit.
+Use the [verification procedure](05-verification.md) to select meaningful checks, review findings and make an acceptance decision. Distinguish actual execution, the sufficiency of the method and acceptance by the authorized owner. Verification concerns an established requirement; validation concerns intended user use. The requested endpoint determines which conclusions are needed. Inspection, analysis or demonstration may suffice for a bounded reversible change; they cannot replace an applicable executable gate or separate review.
 
-For a material condition, maintain the chain: requirement and version → observable property → rule for the correct result → method → evidence → bounded conclusion. The presence of a test, coverage percentage, and agreement between test and implementation do not replace correct expected behavior. For a bug, distinguish reproduction of the original defect from a test failing for an unrelated reason.
-
-Evidence identifies the checked object and inputs, applicable criterion, actual method and completion, relevant environment, result and scope, primary observations, limitations and origin. Existing CI, a tool result or an inspected source and diff may already carry this information; do not create a separate evidence file merely to repeat it. For direct inspection, identify the observer and actual material inspected, compare it with the criterion and state what the observation establishes. Then decide separately whether that method is sufficient. Direct inspection cannot replace an applicable executable gate or separate review requirement, and is not a host-observed or runner receipt. An agent's text saying `passed` does not replace an execution event.
+For each material condition, maintain the chain from requirement and version to observable property, expected result, method, evidence and bounded conclusion. A test, coverage percentage or agreement between implementation and test does not establish the right behavior. For a bug, distinguish reproduction of the defect from an unrelated runner or fixture failure.
 
 | Check result | Meaning |
 |---|---|
 | PASS | The stated check actually completed successfully |
 | FAIL | A discrepancy was found |
-| INCOMPLETE | A check was started but did not finish, or was only partially executed |
+| INCOMPLETE | A check started but did not finish, or ran only partly |
 | NOT_RUN | It is known that the check was not performed |
 | INCONCLUSIVE | Observations conflict or do not support the required conclusion |
 
-Mark lost evidence as unconfirmed; its loss alone does not prove that no execution occurred. A successful wrapper, an empty selection, and a skipped job do not equal executed tests. Compare the structured result against the accepted required set. A pre-existing defect remains a defect; establishing its independence from the change requires evidence from a comparable baseline.
+Lost evidence is unconfirmed; loss alone does not prove nonexecution. A successful wrapper, empty selection or skipped job does not establish that checks ran. Evidence identifies the checked artifact and inputs, criterion, method and completion, relevant environment, result, primary observations, limitations and origin. Existing source, CI or tool output may already provide this information. Link it from the `.contour` record when needed; a duplicate report adds no assurance.
 
-Changes invalidate the applicability of affected evidence: code, tests, expected behavior, configuration, dependencies, environment, and integration base can all be material. Unchanged applicable evidence may be reused. Rerunning checks in every message is unnecessary. Retain all flaky attempts; a green retry does not erase red results.
+Reassess evidence when code, tests, expected behavior, configuration, dependencies, environment or integration basis changes. Reuse only applicable evidence and retain flaky attempts. A baseline failure remains a failure; establish independence from the change on a comparable basis. A later green retry does not erase contradictory observations. The local runner additionally requires its exact candidate and profile bindings.
 
-**A gate exception does not change the fact of verification.** It states the condition, result, consequences, compensating measure, authority owner, scope, and expiry or reconsideration condition. A product requirement change goes through the owner of its meaning; an executor's technical exception does not replace this. The final result states the completeness of evidence and the gate decision separately, including current exceptions.
+A gate exception preserves the actual status and states the condition, consequence, compensating measure, authority, scope and expiry or reconsideration condition. Policy must already define which conditions are waivable and by whom. An agent cannot declare a condition waivable, override an explicit user boundary, or substitute a technical exception for a product decision. Acceptance with a permitted exception may be valid; incomplete verification and remaining obligations stay visible, and the result is not described as fully verified. The local controller's acceptance contract requires every registered criterion and provides no waiver shortcut.
 
-The applicable policy defines in advance which gate conditions permit exceptions and who may grant them. The agent must not declare a condition waivable on its own; a rule that cannot be waived and an explicit user boundary remain in force. A result may become Accepted with a current exception if its acceptance contract permits this. In that case, incomplete verification and the remaining obligation stay visible. The endpoint "fully verified" must not be claimed; changing that endpoint requires the corresponding authority.
+Assign competent separate review for material changes to access, money, data integrity, shared contracts or migrations, and according to other consequential uncertainty. Follow the neutral-source and counterevidence procedure; a role label, model agreement or absence of findings supplies no guarantee. Read-only access must be technically enforced when that is required. With shared permissions, state that independence and write restrictions are organizational. Review temporary outputs remain inside their authorized `.contour` location.
 
-The reviewer receives a neutral package: intent, state and diff, criteria, results and material unknowns. The reviewer checks facts and sufficiency rather than endorsing the author's prewritten verdict. A finding states the violated condition or justified risk, location, consequences and checking method. Before retaining it, inspect relevant counterevidence such as callers, guards, tests or a comparable baseline; distinguish an introduced defect, an existing defect, a risk and advice. No finding is a valid outcome. A style preference does not become a requirement. A finding may be rejected with a reasoned basis showing that it is wrong; clear independent fixes continue while another finding remains unclear.
+Review changes to controls separately: expected results, workflow, test selection, runner, policy and the status source. A faulty control may be corrected from an independent product basis. The executor must not pass by weakening it or, where technical separation is required, attest to a unilaterally altered control through another path.
 
-Assign separate review according to consequences and uncertainty. Material changes involving access, money, data integrity, shared contracts, and migrations require a competent reviewer with a defined scope. Agent count and role title do not establish competence or independence. Check the ability to detect defects of the required class and to distinguish fact, requirement, and preference.
+Verify execution behind a green hosted status. GitHub, for example, allows `successful`, `skipped` and `neutral` required checks; account for their origin and actual bypass permissions. This platform behavior does not require adopting GitHub. [GitHub protected branches](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches).
 
-Read-only is a property of access, not a role in a prompt. Where enforcement is implemented, restrict writing to the object and gate rules through the filesystem, Git, processes, network, and APIs; authorize temporary verification outputs separately. If the environment grants shared permissions, the restriction is organizational and relies on detecting violations; state this explicitly.
-
-Controls also protect themselves: changes to expected results, workflow, test selection, runner, policy, or the source of the final status receive a separate review of their basis. Correcting an erroneous test is permitted; presenting a weakened standard as a product fix is not. Where technical enforcement is required, the executor must not be able to change the control unilaterally and attest to its success through another available path.
-
-Verify actual execution independently of the name of a green status. For example, GitHub permits `successful`, `skipped`, and `neutral` for required checks; account for the status's origin and actual bypass permissions. This is a property of that platform, not a requirement to use GitHub. [GitHub protected branches](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches).
-
-Present the result with the changes, achieved endpoint, state, criteria supported by evidence, actual statuses, material findings, exceptions, and remaining work. "No findings" does not mean "no defects"; "candidate completed" does not mean "release occurred."
+Report the achieved endpoint, actual check outcomes, their coverage and limits, acceptance and exceptions, substantive findings and remaining obligations. A completed candidate does not establish release, and no findings does not establish absence of defects.
 
 ## 15 AI behavior and unforeseen situations
 
@@ -351,89 +340,41 @@ Evaluation covers both executing a prohibited action and making an incorrect cho
 
 Also test the opposite failure: refusing authorized work, asking again for permission already granted, calling a reviewer for an obvious typo, or stopping all work because of an independent blocker. For every material boundary, a pair of scenarios is useful: one requires action, the other requires stopping the specific action. Change one underlying condition to test sensitivity to it.
 
-Evaluate useful properties through observable calls, artifacts, decisions, outcomes, and recovery. Access to hidden internal reasoning is unnecessary. Self-reported confidence, self-criticism, and a second agent do not replace facts. Monitoring may detect violations but is not presented as universal protection. Research basis: [MAST](https://arxiv.org/abs/2503.13657v3), [AgentAbstain v2](https://arxiv.org/abs/2607.10059v2); their finite test sets do not cover every possible behavior.
+Evaluate useful properties through observable calls, artifacts, decisions, outcomes, and recovery. Access to hidden internal reasoning is unnecessary. Self-reported confidence, self-criticism, and a second agent do not replace facts. Monitoring may detect violations but supplies no universal protection. These rules define Contour's evaluation design; their usefulness still needs measurement in the selected profile.
 
 An optimization is useful only if it preserves required actions, constraints, and recoverability. A shorter instruction that causes more errors, retries, or unnecessary questions does not qualify solely through token reduction. Add new real failures to the regression set with their applicability context; do not turn them into unconditional prohibitions for every task.
 
 ## 16 Release, operations, and closing obligations
 
-Define the endpoint in advance for every task. The full methodology includes release and ongoing support, but a particular bug may end with an accepted patch without deployment. Reaching the endpoint does not automatically authorize the next external operation.
+Use the [delivery procedure](07-delivery.md) when the assignment includes integration, release, migration, operation, incident response or end of support. A bug assignment may end with an accepted patch. Reaching that endpoint does not automatically authorize another external operation.
 
-Record separately the accepted change result, integrated contents, suitable candidate, authority to release, actual deployment, feature availability to its audience, and verified operation. These are claims about different objects and may coexist: the current working version does not stop working because the next candidate is unfinished.
+Keep accepted change, integrated contents, suitable candidate, release authority, deployment, audience availability and verified operation distinct. Bind the specific delivered artifact and target environment to applicable evidence. A build or deployment command does not establish user success. Readiness accounts for relevant product scenarios, access, configuration, data, consumers, jobs, resources, observation and support; unknowns do not silently become exceptions.
 
-The release contract connects the goal and audience; account and environment; owner and current authority; specific artifact and digest or identity of the delivered set; configuration and migrations; permitted impact; and methods for checking, stopping, and recovering. A checked tag does not guarantee immutable content. Treat a rebuild as a new candidate until applicable correspondence has been established.
+Apply the effect and recovery rules in section 8 to releases and migrations. Verify intermediate states, mixed versions, concurrent writes and recovery using the project's agreed downtime and data-loss limits. Useful recovery actions may include disabling a feature, stopping writes, compatible rollback, rolling forward, restoration or compensation. A reverted binary does not restore deleted data or undo an external effect. Separate authorized containment from correction of the cause.
 
-Applicable readiness conditions cover product scenarios, access, integrations, resources, configuration, data, old consumers, background jobs, observation, and support. Each material condition has evidence, explainable nonapplicability, or a current decision on residual risk. An unknown does not automatically become an exception.
+Verification artifacts have their own access and retention rules. Publishing an application does not authorize publishing its source, internal logs, dumps or all build metadata. Artifact provenance can support identity but cannot prove behavioral correctness. [SLSA artifact verification](https://slsa.dev/spec/v1.2/verifying-artifacts) and [GitHub artifact attestations](https://docs.github.com/en/actions/concepts/security/artifact-attestations) describe provenance mechanisms, not Contour qualification.
 
-A migration describes transitional states: old and new code, data format, partial execution, concurrent writes, resumption, and the permissible rollback boundary. Verify recovery through an appropriate method, not merely by checking that a backup file exists. Account for valid writes made after the backup. Permitted downtime and losses come from requirements; the agent must not invent them.
-
-A release uses prepared project operations, CI/CD, and official tools while checking the actual target. Reconcile the outcome of an external operation through its identifier and resource state. A timeout, cancellation, or stopped agent does not prove absence of an effect. An unknown outcome does not authorize retrying the entire release.
-
-To verify operation, establish user scenarios, data signals, telemetry freshness, an observation window, and sufficient load. Zero traffic with zero errors does not demonstrate a successful trial release. Apply appropriate criteria to a library, CLI, and demo; round-the-clock on-call duty is not automatically required.
-
-Recovery may include disabling a feature, stopping writes, a compatible rollback, rolling forward with a fix, restoring data, or compensation. Reverting a binary does not undo an external operation or restore deleted data. During an incident, account separately for impact containment and final correction of the cause; urgency does not turn skipped checks into completed checks. A responsibility handoff preserves active effects, hypotheses, and limitations.
-
-Verification artifacts have separate access and retention rules. Permission to publish an application does not automatically authorize publishing source code, internal logs, dumps, or all build metadata. Check artifact provenance when necessary, but it does not replace behavioral assessment. [SLSA 1.2: verifying artifacts](https://slsa.dev/spec/v1.2/verifying-artifacts); [GitHub artifact attestations](https://docs.github.com/en/actions/concepts/security/artifact-attestations).
-
-Decommissioning is a separate change covering consumers, export/migration, stopping traffic and jobs, access, resources, data, copies, and unresolved obligations. Send notifications only within granted permission. Supported versions, temporary exceptions, and archives retain an owner after the service is shut down.
+Retain owners for unfinished operations, supported versions, exceptions, archives and consumer obligations after a handoff or decommissioning. Keep Contour's continuing record in `.contour/` and link the actual release or service evidence. Closing the task does not cancel an active product contract.
 
 ## 17 API documentation and internal editing
 
-Document the consumer contract of HTTP APIs, public functions, events, and other material interaction boundaries. Automatically describing the internal algorithm, every class, and every line of code is not a mandatory development outcome. Preserve the reasons for architectural choices, operating instructions, and useful comments about nontrivial constraints in their appropriate locations.
+Use the [API documentation procedure](06-api-documentation.md) for consumer contracts and requested guides. It owns the sequence: establish authoritative content, write for the reader's task, apply bounded editing, then verify meaning and correspondence with current behavior. An internal code change may need no documentation delta. Consumer documentation belongs in normal project paths; method notes and reviews belong in `.contour/`.
 
-Apply this procedure when a contract or document changes. An internal edit may require no documentation delta; that is a normal outcome. For each applicable question, the consumer must understand the following:
+The internal Humanizer adaptation may clarify prose and remove filler. It may not add technical facts from memory or change obligations, uncertainty, negation, modality, conditions, values, sequence or guarantee boundaries. Preserve code and machine-readable content during a prose-only pass. Correct text may remain unchanged; an inaccurate example returns to substantive content verification. The [source inventory](source-provenance.md) identifies the upstream attribution without importing the donor's broader permissions.
 
-| Area | Content |
-|---|---|
-| Purpose and availability | Operation outcome, audience, environment, version, and enablement conditions |
-| Input | Types, requiredness, constraints, units, defaults, absence/`null`/empty value |
-| Output | Shape, guaranteed fields, variants, ordering, pagination, and streaming boundaries |
-| Errors | Conditions, machine identifiers, consequences, and permissible recovery |
-| Effects | Commit semantics, ordering, retry, idempotency, concurrency, and partial result |
-| Control | Cancellation, timeout, background work, observing the outcome, limits, and quotas |
-| Access | Authentication, roles/scopes, and resource ownership |
-| Evolution | Compatibility, old consumers, migration, end of support, and examples |
-
-This is a question matrix, not eight mandatory headings for every function. Explain nonapplicability where the question is material. Unknown does not mean inapplicable.
-
-**Four internal stages:** establish the basis → prepare technical content → make useful stylistic edits → verify preserved meaning and correspondence with the current state. One agent may perform the roles for these stages; appoint a separate reviewer according to the consequences.
-
-Link a substantive claim to accepted intent, the appropriate version, actual behavior, and the strength of verification. Do not resolve a discrepancy by silently editing the requirement to match the code. A new source version does not imply that the corresponding service version is available. Documentation distinguishes current capability, a future version, and migration instructions.
-
-**Use Humanizer only as a constrained internal editor.** It may remove an empty introduction, correct grammar, and make an explanation easier to follow. It must not add facts from memory, remove a necessary statement, turn uncertainty into confidence, or change modality, negation, conditions, boundaries, units, exceptions, order, or the scope of a guarantee. Preserve names, versions, enum values, scopes, machine values, code, commands, and links; return correction of a faulty example to the content stage. Correct text may remain unchanged. The donor's original broad permissions are not carried into the adaptation. [Humanizer SKILL.md](https://raw.githubusercontent.com/blader/humanizer/main/SKILL.md).
-
-After editing, check that every material obligation retains its subject, action, object, force, condition, and scope. Then look for new unsupported claims. The reviewer receives the basis and delta, not just the polished result. Replacing "the field may be omitted" with "the field may be null," or "the request was canceled" with "the operation was rolled back," is prohibited without the corresponding contract change and evidence.
-
-Use prepared tools for mechanical checks: schema and supported dialect, links, examples, machine-readable fragments, and detectable incompatibilities. They do not establish all semantics. Official OpenAPI materials explicitly limit schema completeness and distinguish the scope of `schema` and `schema-base` for 3.1+. Use the version supported by the project; do not automatically upgrade to the newest version. [OpenAPI schemas](https://spec.openapis.org/oas/).
-
-For a changed contract or behavior-bearing example, check affected compatibility against an old consumer's request and response, including its SDK, serializer, defaults, enum values, errors, ordering and pagination as applicable. For a meaning-preserving prose edit, inspect the passage and its applicable conditions and cross-references; expand the read if meaning remains unclear. Whole-document editing needs whole-document context. A network example or a validator resolving an external reference has its own effects and permissions; the documentation procedure does not automatically authorize running a `POST` against a live service.
-
-Test the stylistic adaptation on Russian and English material, already good text, an erroneous source, and deliberately altered obligations. Criteria are preserved meaning, no new facts, usefulness to the consumer, correct restraint from unnecessary editing, and all costs. An "AI text" detector and the number of phrases removed are not measures of API quality.
+Check affected old consumers for a changed contract or behavior-bearing example. A meaning-preserving prose edit may use source and diff inspection. Mechanical validators check their supported syntax and dialect; they do not establish complete semantics or compatibility. Use the project's actual OpenAPI version and qualified validator. The [OpenAPI schema guidance](https://spec.openapis.org/oas/) distinguishes `schema` from `schema-base` for 3.1+ and describes validation limits. Resolving an external reference or executing a live request has its own access and effect requirements.
 
 ## 18 Implementation, diagnosis, and simplification
 
-The executor works from the current task, authorized delta, and properties to preserve. The scope includes necessary related changes within granted authority; a recently modified file establishes neither authorship nor permission. Preserve the user's original staged, unstaged, and relevant untracked changes. Broad formatting or a revert must not silently encompass another party's work.
+Use the [implementation procedure](04-implementation.md) for code changes, causal diagnosis and local simplification. Preserve the user's staged, unstaged and relevant untracked changes. A recently modified file establishes neither authorship nor permission. Necessary related changes may fit the assignment; broad formatting or reversions must not absorb other people's work.
 
-Applicable behavioral dimensions include: result type and shape; missing/empty/`null`; error channel, condition, and timing; asynchronous behavior and cancellation; traversal order and completeness; number and sequence of effects; identity and shared references; resource release and concurrency; serialization and old consumers. A local cosmetic edit does not require a separately completed matrix of every possible property, but affected distinctions must not be ignored.
+Simplification needs a concrete benefit, understood preconditions and a bounded scope. It occurs before final verification. Leave clear or necessary code unchanged, and do not use a final improver to rewrite an accepted result without renewed evidence. Reviewers return findings; if they write a fix within authority, the new change receives its own appropriate checks.
 
-**Simplification is an internal implementation stage before final verification.** It requires a specific benefit, a bounded delta, and understood preconditions. Fewer lines are not success in themselves. No change is an acceptable result when the source is clear, the complexity is necessary, or the safety of a cosmetic change has not been established.
+Behavioral distinctions include types, missing/null/empty values, error channels and timing, asynchronous behavior, iteration and effect order, reference identity, concurrency, resources, serialization and consumers. The procedure's object-to-Map, async-wrapper and sparse-array examples identify preconditions that a stylistic rewrite must not erase. They are not claims of complete equivalence. Consult the applicable [ECMAScript specification](https://262.ecma-international.org/17.0/) when the language semantics are material.
 
-The reviewer identifies a problem and returns the finding to implementation. If the reviewer switches roles and writes code within authorized boundaries, the new diff receives the appropriate checks; the previous verdict does not automatically cover it. Do not use a final "improver" that rewrites an already accepted result without updating its evidence.
+Diagnosis connects a symptom to a causal hypothesis, a distinguishing observation, a sufficient fix and checks of the original case and affected behavior. An unsuccessful attempt should add evidence or end an unproductive hypothesis. Authorized incident containment may precede final diagnosis; it does not prove the cause was corrected.
 
-The original code-simplification donor contains transformations that require additional conditions. Counterexamples for object→Map, removal of an async wrapper, and for-of→filter on a sparse array were executed during the investigation. Therefore, donor examples are not accepted as universal laws. Tests, analysis, and consumer checks limit risk but do not prove complete equivalence of an arbitrary change. [code-simplification donor](https://raw.githubusercontent.com/addyosmani/agent-skills/main/skills/code-simplification/SKILL.md); [ECMAScript 2026](https://262.ecma-international.org/17.0/).
-
-
-**Bug diagnosis:** preserve the symptom and conditions → establish expected behavior and behavior to preserve → formulate a causal hypothesis → perform a discriminating experiment → make a sufficient fix → check the original case and affected regression. This defines coherent work, not six mandatory documents or agents.
-
-A real reproduction demonstrates violation of the property being checked. A broken runner, invalid fixture, missing command, and empty selection do not count as a product RED. The baseline is comparable in data, dependencies, and configuration; it accounts for the relevant original user changes. Check old code in a separate suitable state; do not reset the user's working tree for an experiment. A worktree separates files, but not all permissions, Git metadata, or external effects.
-
-An unsuccessful attempt must provide a new observation or terminate an unproductive hypothesis. A fixed number of failures alone does not establish an architectural defect. The budget bounds expenditure; facts determine the decision to try a new approach. During an incident, authorized containment may precede identification of the final cause, but must not be reported as proof that the cause has been eliminated.
-
-An ordinary regression test in the accepted framework, checking a product criterion in an authorized environment, belongs to development. A new repository analyzer, bulk service polling, a shared runner change, or a control program is auxiliary automation or a change to controls. Calling it a "test" does not turn it into an ordinary check or bypass section 12. Experimental product code also remains within environment, data, and external-effect boundaries.
-
-After the last material edit, rerun affected checks and the project's required set. If the impact is unclear, investigate it and expand verification. A test for every function, deleting code already written to comply with TDD sequencing, the full suite after every line, and a separate PR for every simplification are not general Contour rules. Verifiable results remain mandatory regardless of the chosen technique.
-
-Sources of diagnostic logic, adapted to the common authority rules: [systematic-debugging](https://raw.githubusercontent.com/obra/superpowers/main/skills/systematic-debugging/SKILL.md), [debugging-and-error-recovery](https://raw.githubusercontent.com/addyosmani/agent-skills/main/skills/debugging-and-error-recovery/SKILL.md). Donor prescriptions do not automatically override Contour's rules.
+Ordinary product tests remain within assigned development. Auxiliary analyzers, control programs and shared runner changes follow section 12 regardless of their names. After the last material edit, run affected checks and the mandatory project set; expand when a concrete impact is unresolved. No universal rule requires a test for every function, deletion of existing code to impose TDD order, or a full suite after every line. Attribution for the simplification and diagnosis adaptations is in the [source inventory](source-provenance.md).
 
 ## 19 Evaluating quality and total efficiency
 
@@ -465,7 +406,7 @@ Cost per result is the sum of all attempt costs and attributable overhead divide
 
 Evaluate the graph and tool invocation method separately. For a graph, account for currency, coverage, updates, and negative controls. For actions, compare direct invocation, a prepared operation, and generated composition under an authorized exception. Generation includes creation, permission, debugging, and errors; prepared operations include development and maintenance. The preference for prepared means remains in force even when the exception mode is being evaluated.
 
-Research basis: [Agent Skills evaluation](https://agentskills.io/skill-creation/evaluating-skills), [Anthropic evals](https://www.anthropic.com/research/demystifying-evals-for-ai-agents), [SWE-Skills-Bench v2](https://arxiv.org/abs/2603.15401v2), [AGENTS.md v3](https://arxiv.org/html/2602.11988v3). Their results are limited to their respective setups; they are not evaluations of Contour.
+The protocol above specifies an evaluation; it is not evidence that Contour improves results. Report actual observations and their limits without borrowing a superiority claim from another system's study.
 
 ## 20 Package composition and profile qualification
 
@@ -482,7 +423,7 @@ The package provides one entry point and the following logical modules. Each pro
 | Delivery and ongoing support | Release, observation, incidents, migrations, and end of support |
 
 
-For maintainers of Contour itself, qualification includes a source and license register, donor adaptation map, role definitions, shared record formats, operation catalog, adapter for the selected environment, and an evaluation set. Permanent normative text is separate from operational project state. Domain facts are not copied into every procedure.
+When maintaining Contour, review changed instructions, source attribution, shared formats and operations against representative tasks and relevant failure cases. Keep assessment evidence inside `.contour/`; do not include temporary verification files in the package. The release workflow packages the source and makes no claim of instruction or product validation. Permanent instructions remain separate from operational project state.
 
 | Qualification gate | Condition |
 |---|---|
@@ -501,9 +442,9 @@ The profile records the full package and scope: runtime/loader, model and settin
 
 This file is the normative method. The skill entry point links to procedures and optional local operations. Their profiles and input examples are in the assets directory of the installed skill.
 
-The local executor is selected for an actual unmet control need or an applicable project requirement. Its completion model requires nonempty file candidates and documented test, build/lint or host-observed review criteria. It does not implement every methodological outcome: a source answer or direct inspection can use the existing project tools and evidence when policy permits. Do not create an irrelevant file, zero-exit check or fabricated witness to fit a result into this adapter. A required gate remains required; a tool change preserves its obligations, history, ownership, budgets and unresolved effects.
+The local executor is selected for an actual unmet control need or an applicable project requirement. Project size or the absence of an equivalent executor alone is insufficient. Its completion model requires nonempty file candidates and documented test, build/lint or host-observed review criteria. It does not implement every methodological outcome: a source answer or direct inspection can use existing project tools and evidence when policy permits. Do not create an irrelevant file, zero-exit check or fabricated witness to fit a result into this adapter. A tool change preserves required gates, history, ownership, budgets and unresolved effects.
 
-The selected local profile uses one coordinator and one admitted owner per conflicting resource. SQLite transactions enforce controller revision/sequence, claim generation, attempt admission and event agreement. Task dependencies pin accepted revisions; relevant changes invalidate downstream basis. Per-task workspaces identify the actual source being built and checked. A native host performs real agent dispatch after durable admission. Separate worktrees and explicit integration preserve source edits and permit independent writing; shared external resources still require compatible ownership. Expired leases do not revoke raw process access, and local fields do not authenticate an adversarial same-user writer.
+The selected local profile uses one coordinator and one admitted owner per conflicting resource. SQLite transactions enforce controller revision/sequence, claim generation, attempt admission and event agreement. Task dependencies pin accepted revisions; relevant changes invalidate downstream basis. Per-task workspaces identify the actual source being built and checked. A native host performs real agent dispatch after durable admission. Native Git or host tools create working copies and integrate changes; the local workflow can bind an existing worktree of the same repository and check its actual source. It does not perform Git mutations or reserve a future destination before creation. The coordinator controls that creation step and assigns ownership before dispatching writers. Shared external resources still require compatible ownership. Expired leases do not revoke raw process access, and local fields do not authenticate an adversarial same-user writer.
 
 The runner executes reviewed argument arrays, records intent before launch, limits time/output and observes actual completion, selection and successful tests. A zero-exit process is insufficient for a test criterion. Receipts bind to the actual source, workspace, task, profile, owner and environment facts; control and candidate changes require rechecking. Later contradictory or unfinished verification cannot be hidden by selecting an older PASS; observed process termination does not resolve the criterion. The eight existing `contour_ops.py` utilities retain their read-oriented consistency semantics. Prepared execution does not grant external authority or replace substantive acceptance.
 
@@ -513,6 +454,6 @@ Before an external effect, record its durable identity, material parameters, aut
 
 Local execution tests, connected application outcomes, behavior trials, independent reviews and archive verification support their recorded scope. Claims of economic superiority, quality no worse on arbitrary applications, or reliable fully autonomous operation require the controlled study in section 19. Provider usage is unknown when the host supplies no telemetry; context bytes are not token billing. Graph remains off without measured full-task benefit. A successful pilot or the author's known tests does not establish universal equivalence.
 
-Contour 1.0 uses local record and runtime database schema 1. Evaluation inputs support schemas 1 and 2. The compact check and plan envelope is opt-in. Reuse existing state at its original control path, reconcile active owners and pending effects, and use explicit reconfiguration when necessary. The [source ownership record](source-provenance.md) identifies the adaptations.
+Contour 1.0 uses local record and runtime database schema 1. Evaluation inputs support schemas 1 and 2. The compact check and plan envelope is opt-in. New runtime state uses `.contour/runtime/`; preserve existing state at its current control path, reconcile active owners and pending effects, and use explicit reconfiguration when necessary. The [source inventory](source-provenance.md) identifies the adaptations and the limits of their provenance.
 
 An update preserves the exact bytes of the previous package, compatibility scope, and a recovery path. Professional use means a known scope, a verifiable basis for decisions, observable results, and honest limitations; a version number by itself creates no guarantees.

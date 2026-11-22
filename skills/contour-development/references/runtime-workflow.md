@@ -4,7 +4,17 @@ Use this local adapter when project policy requires it or its transactional admi
 
 This adapter accepts file candidates backed by its documented test, build/lint or host-observed review criteria. It does not manufacture receipts for direct inspection, nor require an investigation to create a product file. Choose another supported project mechanism for those outcomes before execution, unless an existing policy requires this adapter; resolve such a policy conflict with its owner without declaring the unmet gate satisfied.
 
-The host supplies the model and native agent tools. Python 3.12 on Linux supplies local state and checks. Core operations require no pip dependencies. Git is needed only for worktrees and Git observations; a supported Node/JUnit producer is optional. The setup below applies only to this selected adapter.
+The host supplies the model and native agent tools. Python 3.12 on Linux supplies local state and checks. Core operations require no pip dependencies. Git supplies read-only repository/worktree observations; worktree creation and integration use native Git or host tools. A supported Node/JUnit producer is optional. The setup below applies only to this selected adapter.
+
+## Contents
+
+- [Setup](#setup)
+- [One task through execution](#one-task-through-execution)
+- [Native subagents and review](#native-subagents-and-review)
+- [Worktrees and integration](#worktrees-and-integration)
+- [Pause, recovery and external effects](#pause-recovery-and-external-effects)
+- [Update and recovery of the toolkit](#update-and-recovery-of-the-toolkit)
+- [Output and trust](#output-and-trust)
 
 ## Setup
 
@@ -12,16 +22,18 @@ Read the actual project instructions and available commands. `contour_context.py
 
 Fill the [execution profile](../assets/execution-profile.example.json) with project facts and an existing review/authority reference. Checks are exact reviewed entries. `unittest`, the narrow `junit-leaf-v1` producer profile, and `process` build/lint checks have separate contracts in [runtime-verification.md](runtime-verification.md). A review-only task can use an empty check catalog. Existing product commands are preferable to new auxiliary programs. A profile containing placeholder values is not a project decision.
 
-All checks in this local profile use one complete source selection. Default `.` includes material inputs, including ignored files; put databases, generated output and control records outside the source tree. For a large project, justify an explicit complete selection rather than silently dropping inputs. External services and dependency/environment state need their own recorded checks.
+All checks in this local profile use one complete source selection. Default `.` includes material inputs, including ignored files, with the reserved root `.contour/` subtree explicitly excluded and bound into the snapshot digest. Keep runtime state, reports and generated control output there, and keep product inputs elsewhere. Other ignored inputs and nested product directories named `.contour` remain in scope. For a large project, justify an explicit complete selection rather than silently dropping inputs. External services and dependency/environment state need their own recorded checks.
 
-From the skill root:
+Prepare the project-specific profile at `.contour/execution-profile.json`. From the installed skill root:
 
 ```bash
-python3 -B scripts/contour_workflow.py init --root /absolute/project --workspace /absolute/control --profile /absolute/profile.json
-python3 -B scripts/contour_workflow.py status --workspace /absolute/control
+python3 -B scripts/contour_workflow.py init --root /absolute/project --profile /absolute/project/.contour/execution-profile.json
+python3 -B scripts/contour_workflow.py status --workspace /absolute/project/.contour/runtime
 ```
 
-The control directory is new and outside product inputs. Initialization never overwrites an existing project configuration or `AGENTS.md`. If interruption occurred before the first configuration write, an empty assigned control directory can be initialized; an unrecognized nonempty directory is preserved for reconciliation. Repeating identical initialization validates the durable identity, preserves the database and history, and completes missing `runs`, `packets` and `git` directories after interruption. A file or symlink in place of a required directory is a conflict to reconcile, not something to overwrite. The profile and toolchain are hashed. A changed profile/toolchain requires explicit reconfiguration; do not edit `project.json` or the database to clear a gate.
+Omitting `--workspace` selects `.contour/runtime/`, containing `project.json`, `state.sqlite3`, `runs/` and `packets/`. Initialization creates `.contour/.gitignore` with `*` only when absent. It preserves existing records and ignore policy and does not edit root `AGENTS.md`, root `.gitignore` or product configuration. It creates no Git worktree or integration directory. Explicit existing external workspaces remain supported; preserve their history rather than creating a replacement ledger. New records use the project-local layout.
+
+If interruption occurred before the first configuration write, an empty assigned runtime directory can be initialized; preserve an unrecognized nonempty directory for reconciliation. Repeating identical initialization validates durable identity, preserves the database and history, and completes missing runtime directories. A file or symlink in place of a required directory is a conflict, not something to overwrite. Root `.contour` and storage ancestors must be real directories. The profile and toolchain are hashed. A changed profile/toolchain requires explicit reconfiguration; do not edit `project.json` or the database to clear a gate.
 
 ## One task through execution
 
@@ -40,8 +52,8 @@ For each criterion, select the latest check admitted on the current revision, so
 `accepted` is already a terminal successful revision. Release its stopped writer's claim when appropriate, then report the result; do not transition it to `closed`. `closed` is the separate terminal outcome for work ended without acceptance. New work uses `revise` or a linked task. Administrative closure in an external issue tracker is not a controller state transition and needs that task's applicable authority.
 
 ```bash
-python3 -B scripts/contour_workflow.py request --workspace /absolute/control --file /absolute/request.json
-python3 -B scripts/contour_workflow.py check --workspace /absolute/control --file /absolute/check-request.json
+python3 -B scripts/contour_workflow.py request --workspace /absolute/project/.contour/runtime --file /absolute/project/.contour/runtime/request.json
+python3 -B scripts/contour_workflow.py check --workspace /absolute/project/.contour/runtime --file /absolute/project/.contour/runtime/check-request.json
 ```
 
 The check request contains `request_id`, `task_id`, `expected_revision`, `expected_seq`, `worker_id`, `generation`, `check_id`, and `criterion_ids`. An explicitly reviewed same-basis retry also records `resolution_ref`; original failures remain. Actual reserve is the check timeout plus cleanup/observation allowance, so the total task budget must cover it. An overrun is recorded and blocks subsequent overspend.
@@ -64,25 +76,27 @@ Use actual host timing/status. Missing telemetry is unknown, not zero. A stale o
 
 ## Worktrees and integration
 
-Use `worktree` before parallel writing. Its JSON request has the current task/claim, a new `request_id`, `reserve_seconds`, `destination` (fresh directory outside the source), and `base` (resolved to a commit). The operation persists intent, creates a detached worktree, records the observed result and assigns that actual workspace to the task. It leaves staged, unstaged and untracked source edits intact. Commit implementation changes using the project's normal authorized Git workflow; no publishing is implied.
+Use native Git, host worktree tools or the project's existing procedure when parallel writing needs separate working copies. Put new Contour working copies under `.contour/worktrees/`, for example `.contour/worktrees/worker-a`; create that directory only when needed. A single local edit need not create a worktree. The coordinator serializes creation, observes the actual result and resolves ownership before dispatching writers. Preserve staged, unstaged and relevant untracked work and follow the project's hooks and integration rules.
 
-Admission requires a write claim and atomically reserves the canonical destination before Git writes. Equal, ancestor or descendant workspace paths conflict whenever either owner writes; expiration does not free an unreleased reservation. Sibling worktrees and compatible read sharing remain available. The adapter supplies `workspace_destination` and uses the bound path; callers cannot inject it through a check or worker packet.
+The workflow may use the project root or an explicitly assigned existing Git worktree of the same repository. For a new task, supply its absolute `workspace_root` to `register`. To move existing work, use `update-candidate` with `workspace_root`, `assignment_ref` identifying the observed native operation, and `reason`. The adapter checks the actual worktree root, common Git directory and native worktree registration; a directory name alone is insufficient. It observes the new candidate rather than transferring an old receipt to it. Pending attempts and incompatible ownership still block reassignment.
 
-Use `integrate` for an ordered list of identified ordinary single-parent `commits`, explicit `allowed_paths`, a pinned `base`, fresh `destination` and the same admission fields. It applies commits without publishing or committing the integration result. A conflict is preserved for repair. The successful result is a candidate in an assigned worktree, with verification still required. Merge commits and other unsupported histories require an explicit reviewed project integration procedure; the tool does not guess a parent.
+Claims cover the assigned workspace. Equal or nested product paths conflict whenever either owner writes; expiration does not release a claim. Worktrees below the reserved `.contour/worktrees/` are independent of the main product workspace, while equal or nested worktree paths still conflict. Native creation happens outside the controller: it does not reserve a future destination or wrap the Git mutation in a transaction. Coordinate that step explicitly instead of attributing a guarantee to the ledger.
 
-Scope is checked before application and against the resulting index, working tree and untracked files. `incoming_changed_paths` describes the commits; `changed_paths` describes the actual candidate relative to the pinned base, including both sides of renames. If Git follows a target rename outside `allowed_paths`, the result is `INCOMPLETE` with explicit `outside_scope_paths`. Preserve that worktree for reconciliation; it is not assigned as the task's candidate. Do not widen scope merely to make the result pass.
+Integrate identified changes through the project's normal Git or host procedure against the current baseline. Check the actual changes against the assigned scope, including renames and relevant uncommitted files; resolve conflicts without overwriting another owner's work. Keep the integration result at an assigned workspace, call `update-candidate` after material changes, then run affected interface checks and the required verification on that combined source. A clean merge or an old worktree receipt does not establish acceptance.
 
-Both commands record history and spend and compare source bytes and staged entries before and after integration. The prepared adapter refuses active hooks, executable checkout filters or merge drivers, filesystem monitors and environment-supplied Git configuration; those projects use their reviewed native integration procedure. It never disables required hooks to force success. Explicit root routing and a bounded, noninteractive Git environment prevent an inherited `GIT_DIR` or index override from redirecting the operation. A worktree separates files; it does not isolate credentials, services, repository object storage or another process's access. The current working copy must remain stable while checking it.
+The workflow exposes no `worktree` or `integrate` command. Native operations retain their own permissions, hooks, failure behavior and recovery. If one fails or its result is uncertain, inspect the real Git/worktree state before retrying; Contour does not automatically roll it back or publish anything. Working copies do not isolate credentials, shared services or another process with filesystem access.
 
 ## Pause, recovery and external effects
 
 `status` is read-only. `resume` records actual observations of pending attempts; it never restarts them automatically. A lease expiry, timeout or cancellation request does not prove a worker stopped. Reconcile actual processes, resource ownership and partial results before releasing a claim. A stopped attempt without a factual result cannot become PASS. The original intent/result gaps remain in history.
 
+For another session or environment, deliberately carry the current `.contour/work.md` and necessary project facts; Git does not transfer ignored runtime state. Transferring a controller also requires a consistent database and its referenced artifacts, followed by identity and environment reconciliation. A note alone does not recreate missing attempt history, permissions, spend or active processes.
+
 For a material external action, `plan-effect` records stable identity, parameters, target, environment, authority and reconciliation procedure before the actual host tool call. A native worker attempt can bind that effect. The controller journals the decision; it does not implement arbitrary HTTP, deployment, payment or other external mutations. Use the project's real prepared tool within current authority. `reconcile-effect` records the receiver observation. A retry of a potentially completed effect requires the same immutable effect, a verified current receiver guarantee and current authority; otherwise the dependent action remains blocked.
 
 ## Update and recovery of the toolkit
 
-Keep the prior package and state. Stop/reconcile workers and effects, release claims and use `backup` to create a fresh SQLite snapshot. An unsupported database schema fails explicitly; this release does not reinterpret another schema.
+Keep the prior package and state. Stop/reconcile workers and effects, release claims and use `backup` to create a fresh SQLite snapshot under `.contour/`. An unsupported database schema fails explicitly; this release does not reinterpret another schema.
 
 `reconfigure` consumes a JSON object with `request_id`, the complete new `profile`, `reason`, and `authority_ref`. It persists the exact replacement intent, updates the controller profile and then the project file. If interrupted between those writes, submit the same request under the same toolchain; the retained intent completes the replacement without resetting spend. A conflicting request or changed toolchain is rejected for reconciliation. Reconfiguration invalidates affected task basis; revise and rerun applicable evidence. Restoring an old tool version does not roll back product changes or external effects.
 
@@ -93,7 +107,7 @@ Successful workflow/state commands return JSON with status `OK`; checks return t
 `check` and `plan` accept `--view compact` for readers that understand its envelope. Default output and `--view full` keep the existing JSON shape. The optional view replaces only an identical repeated receipt under `controller.attempt.receipt` with a reference to the retained receipt. It changes neither execution, exit status, durable history nor receipt contents. For example:
 
 ```bash
-python3 -B scripts/contour_workflow.py check --workspace /absolute/control --file /absolute/check-request.json --view compact
+python3 -B scripts/contour_workflow.py check --workspace /absolute/project/.contour/runtime --file /absolute/project/.contour/runtime/check-request.json --view compact
 ```
 
 The envelope has `view` and `result`. Read the outcome at `result.status`; an envelope is not a PASS. `view.name` is `contour-workflow-compact` and `view.schema_version` is 1. Each entry in `view.references` names a `from` slot and a `to` target as JSON Pointer fragments rooted at the envelope. Expand only those listed slots to reconstruct the full result. A `$ref`-looking object elsewhere remains ordinary data. Plan references point inside the corresponding `result.results` entry. Unequal receipt copies remain intact and produce `RECEIPT_COPY_MISMATCH` in `view.inconsistencies`; reconcile the discrepancy rather than choosing the favorable copy.

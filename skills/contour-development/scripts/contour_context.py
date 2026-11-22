@@ -34,7 +34,9 @@ MAX_READ_BYTES = 128 * 1024 * 1024
 MAX_OUTPUT_BYTES = 4 * 1024 * 1024
 MAX_GIT_BYTES = 4 * 1024 * 1024
 MAX_ERRORS = 32
-DEFAULT_EXCLUDES = (".git", ".hg", ".svn", "node_modules", "__pycache__", ".venv", "venv")
+# .contour is special: only the selected project's root administrative subtree
+# is omitted. A product directory such as src/.contour remains selectable.
+DEFAULT_EXCLUDES = (".git", ".hg", ".svn", ".contour", "node_modules", "__pycache__", ".venv", "venv")
 MANIFESTS = {
     "package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock",
     "pyproject.toml", "uv.lock", "poetry.lock", "requirements.txt",
@@ -315,7 +317,7 @@ def _finish(result, max_output_bytes):
     return result
 
 
-def _git(root, arguments, *, max_bytes=MAX_GIT_BYTES, timeout=5):
+def _git(root, arguments, *, max_bytes=MAX_GIT_BYTES, timeout=5, literal_pathspecs=True):
     """Fixed arguments only; bounded stdout, discarded stderr, finite child lifetime."""
     executable = shutil.which("git")
     if not executable:
@@ -327,7 +329,7 @@ def _git(root, arguments, *, max_bytes=MAX_GIT_BYTES, timeout=5):
     # The qualified Linux host has /proc; refuse an unsafe path fallback.
     if not os.path.isdir(anchor):
         return {"status": "safe_anchor_unavailable", "data": b""}
-    command = [executable, "--literal-pathspecs", "-c", "core.fsmonitor=false", "-c",
+    command = [executable, *(["--literal-pathspecs"] if literal_pathspecs else []), "-c", "core.fsmonitor=false", "-c",
                "core.hooksPath=/dev/null", "-C", anchor, *arguments]
     try:
         proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
@@ -370,8 +372,10 @@ def _selected(name, paths):
     return any(p == "." or name == p or name.startswith(p + "/") for p in paths)
 
 
-def _excluded(name, include_hidden, exclude_dirs):
+def _excluded(name, include_hidden, exclude_dirs, excluded_roots=()):
     parts = PurePosixPath(name).parts
+    if parts and parts[0] in excluded_roots:
+        return "excluded_root"
     if any(p in exclude_dirs for p in parts):
         return "excluded_name"
     if not include_hidden and any(p.startswith(".") for p in parts):
@@ -389,11 +393,14 @@ def _inventory(root, paths, limit, respect_gitignore, include_hidden, exclude_di
     excluded = set(exclude_dirs) | {".git", ".hg", ".svn"}
     if any(not isinstance(n, str) or not n or "/" in n or "\\" in n for n in excluded):
         raise ContextError("INVALID_INPUT", "exclude_dirs must contain basenames")
+    excluded_roots = excluded & {".contour"}
+    excluded -= excluded_roots
     result = _base("inventory", root)
     coverage = result["coverage"]
     coverage.update({"paths": selection, "mode": "filesystem", "git_status": "not_requested",
                      "respect_gitignore_requested": respect_gitignore, "gitignore_applied": False,
                      "include_hidden": include_hidden, "excluded_names": sorted(excluded),
+                     "excluded_root_paths": sorted(name + "/" for name in excluded_roots),
                      "visited_entries": 0, "entry_limit": MAX_ENTRIES, "file_limit": limit,
                      "skipped": {}, "absence_scope": "selected paths and reported filters only"})
     skipped = Counter()
@@ -406,7 +413,7 @@ def _inventory(root, paths, limit, respect_gitignore, include_hidden, exclude_di
                 _error(result, _io_error(exc, name))
 
     def add(name):
-        reason = _excluded(name, include_hidden, excluded)
+        reason = _excluded(name, include_hidden, excluded, excluded_roots)
         if reason:
             skipped[reason] += 1
             return
@@ -425,11 +432,32 @@ def _inventory(root, paths, limit, respect_gitignore, include_hidden, exclude_di
         except ContextError as exc:
             _error(result, exc)
 
-    probe = _git(root, ["rev-parse", "--is-inside-work-tree"], max_bytes=128) if respect_gitignore else None
+    # A selected root may itself be an extracted project or a temporary fixture
+    # inside an enclosing project's administrative tree. Its parent repository's
+    # ignore policy is not that independent root's source inventory. Git's prefix
+    # is relative to its actual worktree top, so normal nested source directories
+    # and child repositories/worktrees retain their existing Git semantics.
+    probe = _git(root, ["rev-parse", "--is-inside-work-tree", "--show-prefix"],
+                 max_bytes=8192) if respect_gitignore else None
+    use_git = False
     if probe is not None:
         coverage["git_status"] = probe["status"]
-    if probe and probe["status"] == "ok" and probe["data"].strip() == b"true":
-        listing = _git(root, ["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", *selection])
+        inside, _, prefix = probe["data"].partition(b"\n")
+        use_git = probe["status"] == "ok" and inside == b"true"
+        relative_root = PurePosixPath(os.fsdecode(prefix.removesuffix(b"\n"))).parts
+        if use_git and relative_root and relative_root[0] == ".contour":
+            use_git = False
+            coverage.update({"git_scope": "enclosing-administrative-tree",
+                "gitignore_not_applied_reason":
+                    "Selected root is inside an enclosing Git worktree's root .contour; its source inventory does not describe this independent root."})
+    if use_git:
+        # Prefix each user selection with literal magic. The only non-literal
+        # operator is our root administrative exclusion, applied by Git before
+        # its bounded output so runtime/worktree volume cannot consume it.
+        pathspecs = [":(literal)" + name for name in selection]
+        pathspecs.extend(":(exclude,literal)" + name for name in sorted(excluded_roots))
+        listing = _git(root, ["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", *pathspecs],
+                       literal_pathspecs=False)
         coverage.update({"mode": "git-visible", "git_status": listing["status"],
                          "gitignore_applied": True, "git_output_byte_limit": MAX_GIT_BYTES,
                          "git_timeout_seconds": 5})
@@ -466,7 +494,7 @@ def _inventory(root, paths, limit, respect_gitignore, include_hidden, exclude_di
             if name in seen:
                 continue
             seen.add(name)
-            reason = None if name == "." else _excluded(name, include_hidden, excluded)
+            reason = None if name == "." else _excluded(name, include_hidden, excluded, excluded_roots)
             if reason:
                 skipped[reason] += 1
                 continue
@@ -801,11 +829,13 @@ def _manifest_facts(name, data):
 
 
 def inspect_project(root, *, paths=None, max_files=1000, max_instruction_bytes=32768,
-                    max_output_bytes=131072):
+                    max_output_bytes=131072, include_excluded=False, respect_gitignore=True):
     _integer(max_instruction_bytes, "max_instruction_bytes", 1, 1048576)
+    _boolean(include_excluded, "include_excluded")
     with _Root(root) as anchor:
         selected = _paths(paths)
-        files = _inventory(anchor, paths, max_files, True, True, DEFAULT_EXCLUDES)
+        excluded = [] if include_excluded else DEFAULT_EXCLUDES
+        files = _inventory(anchor, paths, max_files, respect_gitignore, True, excluded)
         result = _base("inspect", anchor)
         result["coverage"] = files["coverage"]
         result["errors"] = files["errors"]
@@ -819,7 +849,10 @@ def inspect_project(root, *, paths=None, max_files=1000, max_instruction_bytes=3
                                          "nested_discovery": "bounded selected inventory plus explicit target ancestors",
                                          "before_write": "Inspect the exact target paths again, including newly selected directories"}
         used = 0
-        for absolute, (directory, relation) in _instruction_candidates(anchor, selected, files["records"]):
+        instruction_paths = [name for name in selected
+                             if include_excluded or not PurePosixPath(name).parts
+                             or PurePosixPath(name).parts[0] != ".contour"]
+        for absolute, (directory, relation) in _instruction_candidates(anchor, instruction_paths, files["records"]):
             try:
                 remaining = max_instruction_bytes - used
                 if directory.is_relative_to(anchor.path):
@@ -893,10 +926,10 @@ def main(argv=None):
     for name in ("inventory", "search", "inspect"):
         command = commands.add_parser(name)
         command.add_argument("--path", action="append", dest="paths")
+        command.add_argument("--include-excluded", action="store_true")
+        command.add_argument("--no-gitignore", action="store_true")
         if name != "inspect":
             command.add_argument("--include-hidden", action="store_true")
-            command.add_argument("--no-gitignore", action="store_true")
-            command.add_argument("--include-excluded", action="store_true")
             command.add_argument("--limit", type=int, default=100 if name == "search" else 1000)
         if name == "search":
             command.add_argument("query")
@@ -936,7 +969,9 @@ def main(argv=None):
                             exclude_dirs=[] if args.include_excluded else DEFAULT_EXCLUDES, **shared)
         elif args.operation == "inspect":
             result = inspect_project(args.root, paths=args.paths, max_files=args.max_files,
-                                     max_instruction_bytes=args.max_instruction_bytes, **shared)
+                                     max_instruction_bytes=args.max_instruction_bytes,
+                                     include_excluded=args.include_excluded,
+                                     respect_gitignore=not args.no_gitignore, **shared)
         elif args.operation == "read":
             result = read_slice(args.root, args.path, args.start, args.end,
                                 expected_sha256=args.expected_sha256, max_file_bytes=args.max_file_bytes, **shared)

@@ -4,9 +4,11 @@
   "environment_id": "replace-with-verified-local-environment",
   "authority_ref": "replace-with-existing-task-authority",
   "acceptor": "replace-with-actual-acceptor",
-  "reviewed_ref": "replace-with-profile-review-record",
+  "reviewed_ref": ".contour/work.md#replace-with-actual-profile-review",
   "host_mode": "native",
-  "snapshot_paths": ["."],
+  "snapshot_paths": [
+    "."
+  ],
   "checks": [
     {
       "id": "unit-tests",
@@ -16,7 +18,9 @@
       "minimum_passed": 1,
       "timeout_seconds": 120,
       "output_limit_bytes": 1048576,
-      "snapshot_paths": ["."]
+      "snapshot_paths": [
+        "."
+      ]
     }
   ],
   "context7": {

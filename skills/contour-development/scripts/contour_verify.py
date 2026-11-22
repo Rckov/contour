@@ -68,7 +68,7 @@ def validate_check(check):
     require(not set(check) - allowed, "unknown check fields: " + ", ".join(sorted(set(check) - allowed)))
     checked = {
         "id": _text(check.get("id"), "check.id"), "kind": kind,
-        "cwd": ops.relative(check.get("cwd", "."), allow_dot=True),
+        "cwd": ops.product_relative(check.get("cwd", "."), allow_dot=True),
         "timeout_seconds": _number(check.get("timeout_seconds", 120), "timeout_seconds", 0.05, 3600),
         "output_limit_bytes": check.get("output_limit_bytes", MAX_RESULT_BYTES),
     }
@@ -76,7 +76,7 @@ def validate_check(check):
             "output_limit_bytes must be an integer from 1024 to 16777216")
     paths = check.get("snapshot_paths", ["."])
     require(isinstance(paths, list) and paths and len(paths) <= 1000, "snapshot_paths must be a nonempty bounded list")
-    checked["snapshot_paths"] = sorted({ops.relative(p, allow_dot=True) for p in paths})
+    checked["snapshot_paths"] = sorted({ops.product_relative(p, allow_dot=True) for p in paths})
     env = check.get("env", {})
     require(isinstance(env, dict) and len(env) <= 64, "env must be a bounded string map")
     for key, value in env.items():
@@ -85,7 +85,7 @@ def validate_check(check):
         require(isinstance(value, str) and "\0" not in value and len(value) <= 8192, "invalid environment value")
     checked["env"] = dict(sorted(env.items()))
     if kind == "unittest":
-        checked["discover"] = ops.relative(check.get("discover", "tests"), allow_dot=True)
+        checked["discover"] = ops.product_relative(check.get("discover", "tests"), allow_dot=True)
         pattern = _text(check.get("pattern", "test*.py"), "pattern")
         require("/" not in pattern and "\\" not in pattern and len(pattern) <= 128, "pattern must be a file-name pattern")
         checked["pattern"] = pattern
@@ -133,6 +133,7 @@ def _now():
 
 
 def _atomic_json(path, value):
+    path = ops.storage_path(path)
     data = (json.dumps(value, sort_keys=True, ensure_ascii=True, allow_nan=False, indent=2) + "\n").encode()
     require(len(data) <= ops.MAX_JSON, "record exceeds JSON budget")
     temp = path.with_name(path.name + ".partial")
@@ -436,14 +437,12 @@ def supervise(check, project_root, run_dir, binding):
                 "binding.criterion_ids must be unique nonempty strings")
         for criterion in criteria:
             _text(criterion, "criterion id")
-        root = Path(project_root).resolve()
+        root = ops.storage_path(project_root)
         require(root.is_dir(), "project root must be a directory")
-        target = Path(run_dir).absolute()
-        require(not target.exists() and not target.is_symlink(), "run directory must not already exist")
-        parent = target.parent.resolve(strict=True)
-        require(not (parent / target.name).is_relative_to(root), "run directory must be outside the project root")
-        require(not root.is_relative_to(parent / target.name), "project root cannot be inside the run directory")
-        new_directory = parent / target.name
+        new_directory = ops.new_control_location(root, run_dir)
+        if new_directory.is_relative_to(root):
+            ops.contour_directory(root, create=True)
+        parent = new_directory.parent
         new_directory.mkdir(mode=0o700)
         directory = new_directory
         parent_descriptor = os.open(parent, os.O_RDONLY | os.O_DIRECTORY)
@@ -472,8 +471,13 @@ def supervise(check, project_root, run_dir, binding):
             executable = str(Path(argv[0]).resolve(strict=True))
             require(Path(executable).is_file() and os.access(executable, os.X_OK), "reviewed executable is not executable")
             argv[0] = executable
+            if Path(executable).is_relative_to(root):
+                require(Path(executable).relative_to(root).as_posix() in before["files"],
+                        "command executable input is outside the candidate selection")
             for argument in argv[1:]:
                 possible_input = Path(argument) if Path(argument).is_absolute() else cwd / argument
+                if possible_input.is_dir() and possible_input.resolve().is_relative_to(root):
+                    ops.product_relative(possible_input.resolve().relative_to(root).as_posix(), allow_dot=True)
                 if possible_input.is_file() and possible_input.resolve().is_relative_to(root):
                     require(possible_input.resolve().relative_to(root).as_posix() in before["files"],
                             "command file input is outside the candidate selection")
@@ -485,6 +489,7 @@ def supervise(check, project_root, run_dir, binding):
                         "profile_digest": binding["profile_digest"], "criteria_digest": ops.digest(criteria),
                         "command_digest": ops.digest(argv), "argv": argv, "cwd": str(cwd),
                         "timeout_seconds": checked["timeout_seconds"], "snapshot_paths": checked["snapshot_paths"],
+                        "snapshot_selection": before["selection"],
                         "environment": {"python": sys.version.split()[0], "system": platform.system(),
                                         "machine": platform.machine(), "uid": os.getuid(),
                                         "explicit_keys": sorted(checked["env"]), "digest": ops.digest(env)},

@@ -25,17 +25,17 @@ An authorized test or build executes project code and can have effects. The cata
 |---|---|
 | `id` | Stable nonempty check ID |
 | `kind` | `unittest`, `junit`, or `process` |
-| `cwd` | Relative working directory inside the project; defaults to `.`; symlinks are rejected |
+| `cwd` | Relative product working directory; defaults to `.`; symlinks and the reserved root `.contour/` are rejected |
 | `timeout_seconds` | Process supervision budget, from 0.05 to 3600 seconds; defaults to 120 |
 | `output_limit_bytes` | Combined retained stdout/stderr limit, from 1024 to 16777216 bytes; defaults to 1048576 |
 | `snapshot_paths` | Explicit complete selection of material inputs; defaults to `["."]` |
 | `env` | Reviewed explicit string map; defaults to `{}`; no automatic dotenv import |
 
-The child receives a prepared `PATH`, locale, `PYTHONDONTWRITEBYTECODE`, and per-run `TMPDIR`, plus approved `env` entries. It does not inherit host credentials or repurpose `HOME`. The runner reserves `PATH`, `HOME`, temporary-directory variables, and common interpreter-injection environment variables. The snapshot selects actual bytes; external services, database state, runtime dependencies, and secrets need project-specific environment qualification.
+The child receives a prepared `PATH`, locale, `PYTHONDONTWRITEBYTECODE`, and per-run `TMPDIR`, plus approved `env` entries. It does not inherit host credentials or repurpose `HOME`. The runner reserves `PATH`, `HOME`, temporary-directory variables, and common interpreter-injection environment variables. The snapshot selects actual product bytes and declares the root `.contour/` exclusion. Other ignored inputs remain included by an explicit `.` selection; external services, database state, runtime dependencies, and secrets need project-specific environment qualification.
 
 ### Python unittest
 
-Additional fields are `discover` (default `tests`, relative to the project root), `pattern` (default `test*.py`), and `minimum_passed` (positive integer, default 1). The operation constructs the prepared worker argv itself. The reviewed in-project `cwd` is an import location before the outer root, so a nested product imports its own modules; `discover` remains root-relative. Discovery inputs must be included in the candidate snapshot. A project profile still needs to include material imports, fixtures, configuration, lockfiles, and other oracle inputs.
+Additional fields are `discover` (default `tests`, relative to the project root), `pattern` (default `test*.py`), and `minimum_passed` (positive integer, default 1). The operation constructs the prepared worker argv itself. The reviewed in-project `cwd` is an import location before the outer root, so a nested product imports its own modules; `discover` remains root-relative and cannot select reserved root `.contour/`. Discovery inputs must be included in the candidate snapshot. Include material imports, fixtures, configuration, lockfiles, and other oracle inputs in the project selection.
 
 ```json
 {
@@ -73,7 +73,9 @@ snapshot_candidate(project_root: Path, project_id: str, selection_paths=None) ->
 supervise(check: dict, project_root: Path, run_dir: Path, binding: dict) -> dict
 ```
 
-Use the same `snapshot_paths` at admission and execution. `snapshot_candidate` returns the existing `contour_ops.snapshot` format; its default selection is `["."]`, including non-Git projects. `run_dir` must not exist and must be outside the project root. The runner creates it exclusively and refuses reuse. A creation race does not authorize overwriting another operation's receipt.
+Use the same `snapshot_paths` at admission and execution. `snapshot_candidate` returns the `contour_ops.snapshot` format; its default selection is `["."]`, including non-Git projects. The root `.contour/` exclusion is recorded in `selection.excluded_subtrees` and the candidate digest. A nested product directory such as `src/.contour/` remains an ordinary input.
+
+Use a fresh `run_dir` under `.contour/runtime/runs/`. The runner also supports existing external control locations, but rejects ordinary product directories and symlinked storage ancestors. It creates the run directory exclusively and refuses reuse. A creation race does not authorize overwriting another operation's receipt.
 
 The controller supplies its current binding, including `project_id`, `candidate_digest`, `profile_digest`, and unique `criterion_ids`, together with task, worker, generation, operation, and attempt identity. The runner preserves this binding. Criterion semantics belong to the controller's task/profile contract; `criteria_digest` in the receipt hashes the criterion IDs, not an independently invented copy of their definitions.
 
@@ -114,6 +116,4 @@ Protected CI evidence additionally needs provider-origin, repository, commit/int
 
 ## Qualification
 
-Run `python3 -B scripts/test_contour_verify.py` from the installed skill root when qualifying the bundled implementation. The suite exercises actual processes and adapters, including deliberate failure, empty/skip cases, subtest accounting, timeout and inherited pipes, bounded output, stale candidates, input omission, report validation, environment inheritance, and exclusive-directory races. Node-specific checks explicitly skip when Node is absent; a skipped qualification is not a claim of Node support on that host.
-
-Preserve the separate baseline operation tests. Qualify new catalog entries and external producers against their own meaningful negative cases. Do not broaden tests solely to increase the count or claim empirical superiority over another methodology from these mechanical checks.
+When changing the runner or adding a producer, exercise actual processes and meaningful negative cases: unsuccessful or empty selections, interruption, bounded output, stale inputs and malformed reports. Use the relevant producer on the target host; a skipped check does not establish support. Preserve meaningful behavioral coverage when simplifying checks. Test counts do not establish comparative methodology quality.

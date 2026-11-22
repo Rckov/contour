@@ -1,20 +1,20 @@
 interface:
-  display_name: Contour - AI-assisted development
-  short_description: Coordinated AI development and verification
-  default_prompt: Apply $contour-development to this development task.
-  icon_small: assets/icon.svg
-  icon_large: assets/icon.svg
+  display_name: "Contour - AI-assisted development"
+  short_description: "Coordinated AI development and verification"
+  default_prompt: "Apply $contour-development to this development task."
+  icon_small: "assets/icon.svg"
+  icon_large: "assets/icon.svg"
 dependencies:
   tools:
-  - type: mcp
-    value: context7
-    description: Versioned library and API documentation with source-match verification
-    transport: streamable_http
-    url: https://mcp.context7.com/mcp
+  - type: "mcp"
+    value: "context7"
+    description: "Versioned library and API documentation with source-match verification"
+    transport: "streamable_http"
+    url: "https://mcp.context7.com/mcp"
 policy:
   allow_implicit_invocation: false
   products:
-  - chatgpt
-  - codex
-  - api
-  - atlas
+  - "chatgpt"
+  - "codex"
+  - "api"
+  - "atlas"

@@ -18,6 +18,8 @@ import sqlite3
 import time
 import uuid
 
+from contour_ops import Invalid, control_location, new_control_location, storage_path
+
 SCHEMA_VERSION = 1
 STATES = frozenset({"clarifying", "ready", "running", "proposed", "accepted",
                     "blocked", "paused", "closed"})
@@ -153,10 +155,18 @@ CREATE INDEX dependencies_parent ON dependencies(dep_id);
 
 class Controller:
     def __init__(self, db: Path):
-        self.db = Path(db).absolute()
-        require(not self.db.is_symlink(), "State database must not be a symlink")
+        self.db = self._storage_path(db)
+
+    @staticmethod
+    def _storage_path(value):
+        try:
+            return storage_path(value)
+        except Invalid as error:
+            raise StateError("INVALID", str(error)) from error
 
     def _connect(self, create=False):
+        self._storage_path(self.db)
+        self._storage_path(self.db.with_name(self.db.name + "-journal"))
         if not create:
             require(self.db.is_file() and not self.db.is_symlink(),
                     "State database is not initialized", "NOT_INITIALIZED")
@@ -202,6 +212,10 @@ class Controller:
         identifier(project_id, "project_id")
         project_root = Path(root).resolve()
         require(project_root.is_dir(), "Project root must exist")
+        try:
+            control_location(root, self.db)
+        except Invalid as error:
+            raise StateError("INVALID", str(error)) from error
         sha(profile_digest, "profile_digest")
         require(self.db.parent.is_dir(), "State database parent must exist")
         con = None
@@ -679,7 +693,20 @@ class Controller:
         return WORKSPACE_RESOURCE_PREFIX + str(Path(workspace_root).resolve())
 
     @staticmethod
-    def _resources_available(con, task_id, resources, access, exclude_generation=None):
+    def _workspace_overlap(left, right, project_root):
+        if left == right:
+            return True
+        parent, child = (left, right) if left in right.parents else (right, left)
+        if parent not in child.parents:
+            return False
+        # The project root owns product files, while separate worktrees live in
+        # its excluded administrative subtree. Their own nested claims still
+        # overlap normally, including a reservation of the worktrees container.
+        worktrees = project_root / ".contour" / "worktrees"
+        return not (parent == project_root and worktrees in child.parents)
+
+    def _resources_available(self, con, task_id, resources, access, exclude_generation=None):
+        project_root = Path(self._project(con)["root"]).resolve()
         workspaces = [Path(r[len(WORKSPACE_RESOURCE_PREFIX):]).resolve() for r in resources
                       if r.startswith(WORKSPACE_RESOURCE_PREFIX)]
         named = {r for r in resources if not r.startswith(WORKSPACE_RESOURCE_PREFIX)}
@@ -692,7 +719,7 @@ class Controller:
                 for resource in held:
                     if resource.startswith(WORKSPACE_RESOURCE_PREFIX):
                         path = Path(resource[len(WORKSPACE_RESOURCE_PREFIX):]).resolve()
-                        if any(path == root or path in root.parents or root in path.parents for root in workspaces):
+                        if any(self._workspace_overlap(path, root, project_root) for root in workspaces):
                             conflict.add(resource)
             require(prior["task_id"] != task_id and not conflict,
                     "Resource remains owned, including expired claims", "CONFLICT",
@@ -766,8 +793,8 @@ class Controller:
         operation = identifier(req.get("operation_id"), "operation_id")
         category = req.get("category", "check")
         require(category in {"check", "worker", "integration"}, "Invalid attempt category")
-        if category == "integration" and operation in {"git-worktree", "git-integrate"}:
-            require("workspace_destination" in req, "Prepared Git admission requires a destination workspace")
+        require("workspace_destination" not in req,
+                "Create workspaces with host/project tools and assign the existing workspace explicitly")
         criteria = strings(req.get("criterion_ids", []), "criterion_ids", category == "check")
         by_id = {c["id"]: c for c in task["body"]["criteria"]}
         require(set(criteria) <= set(by_id), "Attempt names unknown criteria")
@@ -815,19 +842,6 @@ class Controller:
                    "operation_id": operation, "attempt_id": attempt_id}
         if effect_id is not None:
             binding.update(effect_id=effect_id, effect_digest=digest(effect["body"]))
-        if "workspace_destination" in req:
-            require(category == "integration" and operation in {"git-worktree", "git-integrate"},
-                    "Only prepared Git attempts can reserve a destination workspace")
-            require(claim["access"] == "write", "Worktree mutation requires a write claim", "BLOCKED")
-            destination = Path(text(req["workspace_destination"], "workspace_destination"))
-            require(destination.is_absolute() and destination.parent.is_dir() and
-                    not destination.exists() and not destination.is_symlink(),
-                    "workspace_destination must be a fresh absolute path with an existing parent")
-            destination = destination.resolve()
-            resources = sorted(set(json.loads(claim["resources"])) | {self._workspace_resource(destination)})
-            self._resources_available(con, task["id"], resources, "write", claim["generation"])
-            con.execute("UPDATE claims SET resources=? WHERE generation=?", (encode(resources), claim["generation"]))
-            binding["workspace_destination"] = str(destination)
         con.execute("INSERT INTO attempts(attempt_id,task_id,revision,generation,worker_id,operation_id,category,status,reserve_seconds,binding,resolution_ref,effect_id) VALUES(?,?,?,?,?,?,?,'pending',?,?,?,?)",
                     (attempt_id, task["id"], task["revision"], claim["generation"], claim["worker_id"],
                      operation, category, reserve, encode(binding), req.get("resolution_ref"), effect_id))
@@ -1014,9 +1028,10 @@ class Controller:
         return {"observations": reconciled, "automatic_replay": False}
 
     def _backup(self, con, req, task):
-        destination = Path(text(req.get("destination"), "destination")).absolute()
-        require(destination != self.db and destination.parent.is_dir() and not destination.exists()
-                and not destination.is_symlink(), "Backup destination must be a fresh regular path", "CONFLICT")
+        try:
+            destination = new_control_location(self._project(con)["root"], text(req.get("destination"), "destination"))
+        except Invalid as error:
+            raise StateError("CONFLICT", str(error)) from error
         fd = None
         source = target = None
         created = False

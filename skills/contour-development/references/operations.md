@@ -1,10 +1,20 @@
 # Prepared consistency operations
 
+## Contents
+
+- [Purpose and limits](#purpose-and-limits)
+- [Catalog](#catalog)
+- [Snapshot and scope](#snapshot-and-scope)
+- [Evidence and gate](#evidence-and-gate)
+- [Resume and effects](#resume-and-effects)
+- [Evaluation input formats](#eval-summary-input-formats)
+- [Changing the catalog](#changing-the-catalog)
+
 ## Purpose and limits
 
-One program, `scripts/contour_ops.py`, provides eight operations using the Python standard library. It does not write product files, execute supplied code or commands, access the network, or run product tests. `doctor` and `snapshot` invoke only fixed Git commands. Operational reports and errors are JSON on stdout; help and version output are plain text. Save reports in the relevant record system. Output may contain file names and references; do not publish it automatically.
+One program, `scripts/contour_ops.py`, provides eight operations using the Python standard library. It does not write product files, execute supplied code or commands, access the network, or run product tests. `doctor` and `snapshot` invoke only fixed Git commands. Operational reports and errors are JSON on stdout; help and version output are plain text. Retain needed reports under the project's `.contour/`, linking existing primary evidence. Output may contain file names and references; do not publish it automatically.
 
-For executable state, prepared checks, delegation and Git integration, use the separate [local workflow](runtime-workflow.md). For source retrieval use [context operations](runtime-context.md). Their presence does not change this program's legacy consistency semantics.
+For durable execution state, prepared checks and native-agent assignments, use the optional [local workflow](runtime-workflow.md). Use native Git or host tools to create working copies and integrate changes. For source retrieval use [context operations](runtime-context.md). This program checks supplied data and local observations; it does not own execution state.
 
 The reference environment is CPython 3.12.14 on Linux. Other Python versions and operating systems require their own smoke check. This is a coordinator-managed local profile with a trusted working directory; the program is not a sandbox against a concurrent malicious process, an authorization server, an ownership registry, or a replacement for CI. The coordinator records task states in the chosen source. Invoke project commands and external APIs through their standard tools within current authority.
 
@@ -20,7 +30,7 @@ From the extracted release archive's root, use:
 python3 -B skills/contour-development/scripts/contour_ops.py --help
 ```
 
-Keep reports in a separate location so generated JSON output does not change observed inputs. Create output files without overwriting important existing records; the calling shell performs `>` redirection, not the operation.
+Keep generated reports inside `.contour/`, outside the declared product snapshot. Use fresh report paths without overwriting existing evidence; the calling shell performs `>` redirection, not the operation.
 
 Exit codes: `0` means the operation produced a result according to its purpose; it is **not a universal product PASS**. `1` means an argument, input, or access error. `2` means a detected gap, incomplete observation, or need for review. Interpret the status inside the JSON. Do not treat an error or unknown format as success.
 
@@ -31,17 +41,19 @@ Exit codes: `0` means the operation produced a result according to its purpose; 
 | `doctor` | `--root` | Known files at the root, Git/HEAD, and Python. Does not recursively discover instructions or check permissions or Context7. |
 | `snapshot` | `--root --project-id`, repeatable `--path` | SHA-256 of selected actual files, executable bit, inventory, and limitations. Observation is not atomic and excludes the external environment. |
 | `scope` | `--before --after`, repeatable `--allow`, `--protect` | Changes to selected files, scope violations, and control changes. Shared semantic resources require separate inspection. |
-| `gate` | `--task --snapshot`, optional `--evidence` | Without evidence, prepares a binding before verification. With evidence, checks identity, states, criteria, completeness, and waivers permitted by the supplied data. Acceptance is always `NOT_DECIDED`. |
+| `gate` | `--task --snapshot`, optional `--evidence` | Without evidence, prepares a binding before verification. With evidence, checks identity, states, criteria, completeness, and waivers permitted by the supplied data. Returns `admission: NOT_DECIDED`; it does not accept the product. |
 | `handoff` | `--task --record` | Checks handoff structure, preserves unknown effects, processes, and budget, and identifies reconciliation needs. Does not automatically authorize continuation. |
 | `api-surface` | `--file`, optional `--before` | Inventories `paths` operations in JSON OpenAPI 3.0-3.2; for 3.2, includes QUERY and `additionalOperations` while preserving method case. Does not perform full schema validation, establish semantic compatibility, or resolve `$ref`. |
 | `eval-summary` | `--file` | Descriptive complete or partial observations for whole trajectories and their attempts. Unknown values stay unknown. Does not acquire telemetry or establish statistical superiority. |
 | `verify-package` | `--root`, `--manifest` defaults to `MANIFEST.json` | Complete file inventory and SHA-256 comparison against the supplied manifest. Does not authenticate the publisher or prove behavior. |
 
-For `verify-package`, use the release root that contains its manifest. A standalone installed skill directory is not that release root unless a corresponding manifest was deliberately supplied.
+Use `verify-package` only when the project's existing release process supplies a manifest; its paths are relative to the supplied root. Contour does not require or ship a package manifest.
 
 ## Snapshot and scope
 
-Without `--path`, the root of a Git repository is required: the selection includes tracked and untracked files visible to Git, excluding ignored files. For material ignored/generated files, specify an explicit selection containing **all** required inputs; explicit selection replaces git-visible selection rather than adding to it. Directory traversal excludes `.git` metadata, whether it is the main repository's directory or a worktree's file. Symlinks are not followed; submodules require a suitable separate selection or check. A missing explicitly selected path is reported in `absent_explicit_paths`; zero selected files do not establish sufficiency.
+Without `--path`, the root of a Git repository is required: the selection includes tracked and untracked files visible to Git, excluding ignored files. For material ignored/generated files, specify an explicit selection containing **all** required inputs; explicit selection replaces git-visible selection rather than adding to it. Both policies declare the reserved root `.contour/` exclusion in `selection.excluded_subtrees`, which participates in the digest. Explicit product selections there are rejected. An ordinary nested product directory such as `src/.contour/` is not this reserved subtree. Keep product inputs outside root `.contour/`.
+
+Traversal also excludes `.git` metadata, including a worktree's `.git` file. Symlinks are not followed; a symlink at root `.contour` is rejected. Submodules require a suitable separate selection or check. A missing explicitly selected path is reported in `absent_explicit_paths`; zero selected files do not establish sufficiency.
 
 The snapshot includes only selected file bytes and the executable bit. Check the Git index and staging, service data, secrets and environment variables, actual installed tool versions, and database state separately. This report cannot restore the user's index state. For complete recovery, preserve relevant data in existing Git, CI, and working records. Writes between reads can cause a race: a single writer or real isolation is required.
 
@@ -95,7 +107,7 @@ The example has two trajectories, one accepted, a total cost of 5, and a cost pe
 
 ### Schema 2: partial observations and declared pairing
 
-The [partial evaluation example](../assets/evaluation-partial.example.json) is synthetic. Its `synthetic/` references identify illustrative records, not files or measured runs. Use the same `eval-summary --file` command with this file. Replace every illustrative identity, source and measurement before using it for a real study.
+The [partial evaluation example](../assets/evaluation-partial.example.json) is synthetic. Its `.contour/evaluation/synthetic/` references illustrate project-local record locations, not existing files or measured runs. Use the same `eval-summary --file` command with this file. Replace every illustrative identity, source and measurement before using it for a real study.
 
 Every field below is required; unknown fields are rejected. Use JSON `null` for an unknown permitted value, never an invented zero. A measured zero is a number with an observed basis.
 
@@ -119,4 +131,4 @@ The output always states `data_assurance: CALLER_SUPPLIED_NOT_AUTHENTICATED` and
 
 ## Changing the catalog
 
-The methodology or profile acceptor owns the local release. The assembled Contour 1.0 archive's `MANIFEST.json` must pin its exact bytes. An installed skill update does not update a separately saved archive. An ordinary agent must not modify operations, tests, policy, or the status source to pass a check. A new variant receives substantive review, normal and failure scenarios, and a manifest update when packaged. Prepared workflow plans are fixed typed operation compositions; generated Code Mode still requires separate applicable authorization.
+Review operation changes against their contract and relevant normal and failure cases. Correcting a control requires an independent basis; changing expected behavior or evidence solely to pass is prohibited. An installed skill update does not update a separately saved archive. Prepared plans are fixed typed operation compositions; generated Code Mode requires applicable authorization for new auxiliary logic.

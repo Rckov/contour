@@ -13,7 +13,7 @@
 
 ## Select the operation
 
-Use `scripts/contour_context.py` for bounded, read-only observations. The qualified runtime is Linux with Python 3.12. The module uses the standard library; Git is optional. It writes JSON to stdout and does not modify the project.
+Use `scripts/contour_context.py` for bounded, read-only observations when native search or language tools do not already supply the needed result. The reference runtime is Linux with Python 3.12. The module uses the standard library; Git is optional. It writes JSON to stdout and does not modify the project. Retain a context report under `.contour/` only when another action or session needs it.
 
 | Need | Operation | What it establishes |
 | --- | --- | --- |
@@ -42,9 +42,13 @@ After observing a source digest, pass it to `read --expected-sha256 <digest>`, `
 
 `bundle` takes a JSON array as its positional argument. Each entry has exactly `path`, `start`, `end`, and `sha256`. `start` is one-based, `end` is inclusive or `null` for the rest of the file, and the digest must come from an observed source. JSON is data; it is never evaluated as code.
 
-Use `--max-output-bytes` to bound the complete compact JSON response. `search` also exposes `--max-files`, `--max-file-bytes`, `--max-read-bytes`, `--limit` and `--ignore-case`. `read`, `symbols` and `bundle` expose `--max-file-bytes`; `symbols` exposes `--limit`. `inspect` exposes `--max-files` and `--max-instruction-bytes`.
+Use `--max-output-bytes` to bound the complete compact JSON response. `search` also exposes `--max-files`, `--max-file-bytes`, `--max-read-bytes`, `--limit` and `--ignore-case`. `read`, `symbols` and `bundle` expose `--max-file-bytes`; `symbols` exposes `--limit`. `inspect` exposes `--max-files`, `--max-instruction-bytes`, `--include-excluded` and `--no-gitignore`.
 
-`inventory` and `search` exclude hidden paths and common dependency/cache directories by default. `--include-hidden`, `--include-excluded` and `--no-gitignore` are separate switches: changing one does not silently disable the others. Version-control metadata remains excluded. Select the exact ignored source when it is relevant; do not infer absence from a filtered search.
+`inventory` and `search` exclude hidden paths and common dependency/cache directories by default. Inventory, search and inspection also omit root `.contour/` by default and report it in `coverage.excluded_root_paths`; this does not exclude a nested product directory such as `src/.contour/`. `--include-excluded` removes the root administrative exclusion, while `--include-hidden` and `--no-gitignore` remain independent. Reading root `.contour` through inventory/search normally needs all three; `inspect` already includes hidden names. Version-control metadata remains excluded. Do not infer absence from a filtered search.
+
+Use a direct `read .contour/work.md` for the shared work record without changing search filters. Context retrieval may inspect permitted records intentionally; product snapshots always reserve root `.contour/` for administrative state and reject it as a product selection.
+
+If the selected root is inside another Git worktree's root `.contour/`, inventory uses filesystem traversal instead of that enclosing repository's ignore policy. Coverage reports `git_scope: enclosing-administrative-tree`, `gitignore_applied: false` and the reason. Ordinary nested source directories and independently initialized repositories or linked worktrees retain their own applicable Git inventory.
 
 Exit codes are `0` for complete observations within the declared selection, `3` for partial/error observations, and `2` for invalid requests or unsupported operation prerequisites. Standard argument-parser usage errors also exit `2`. A zero exit code is not product acceptance.
 
@@ -73,7 +77,8 @@ bundle(root, selections, *, max_output_bytes=65536,
        max_file_bytes=1048576)
 
 inspect_project(root, *, paths=None, max_files=1000,
-                max_instruction_bytes=32768, max_output_bytes=131072)
+                max_instruction_bytes=32768, max_output_bytes=131072,
+                include_excluded=False, respect_gitignore=True)
 ```
 
 These calls are prepared operations for a controller. Their availability does not authorize a new ad hoc script or unrestricted Code Mode program. Use the host's prepared orchestration interface when one is provided.
@@ -116,16 +121,10 @@ The output limit accepts 1 KiB through 4 MiB. If even the required result envelo
 
 There is no persistent source index to invalidate. Reads operate on live files. `selection_digest` binds inventory metadata; it is not a content snapshot. A search reports the digest of its observed source records. An inspection profile binds its root, tool version, local host facts, selected paths, inventory metadata and observed instruction/manifest digests.
 
-None of these observations is an atomic multi-file snapshot. Recompute the same profile when relevant files, rules or environment facts change. Use source digests when carrying slices across operations and use the runtime's candidate/integration verification before acceptance. External services, permissions, dependency resolution and runtime-generated links require separate evidence.
+None of these observations is an atomic multi-file snapshot. Recompute the same profile when relevant files, rules or environment facts change. Use source digests when carrying slices across operations. Before acceptance, check the actual combined source with the project's selected verification procedure; context retrieval alone does not verify it. External services, permissions, dependency resolution and runtime-generated links require separate evidence.
 
 Choose navigation to answer the current question. Start with targeted text for strings and wiring, symbols for Python structure, and an existing semantic service for resolved relationships. Evaluate optional maps/graphs against a competent baseline on complete tasks, including setup, update, fallback and repair costs. Do not install a graph because an isolated response is smaller.
 
 ## Verification
 
-Run the local regression suite from the skill's `scripts` directory:
-
-```bash
-python3 -B -m unittest -v test_contour_context
-```
-
-The suite exercises literal lookup, Unicode positions, line ranges, ignored/tracked files, unreadable-source fault injection, special files, path and parent symlinks, live edits during a read, source renames/deletions, stale bundles, instruction scopes, nonexecuted manifest declarations, AST behavior and traversal/read/output/child-process bounds. These are operation correctness tests. Agent routing, task acceptance and economic comparisons are separate evaluation obligations.
+When changing retrieval behavior, check the affected selection, freshness and resource-limit contracts against real source files, including incomplete reads. Operation checks do not establish agent routing, task acceptance or economic benefit.

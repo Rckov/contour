@@ -3,8 +3,7 @@
 When the local adapter is selected, use its prepared workflow entry point. Read
 this reference when integrating that controller, reconciling its interrupted
 work, or diagnosing its state conflicts. The implementation is
-`../scripts/contour_state.py`; the executable
-fault suite is `../scripts/test_contour_state.py`.
+`../scripts/contour_state.py`.
 
 ## Contents
 
@@ -39,9 +38,10 @@ protected signature. Production authorization and trusted CI must use the
 project's actual controls. A task acceptor is recorded as `LOCAL_DECLARED`.
 
 The project profile binds prepared command policy. The workflow adapter computes
-and checks its real digest and validates worktree assignments. The controller
-compares those identities; it cannot infer that an arbitrary digest supplied by
-a caller describes the live filesystem.
+and checks its real digest and validates explicitly assigned existing worktrees.
+Native Git or host tools create and integrate those working copies. The controller
+compares identities; it cannot infer that an arbitrary digest supplied by a
+caller describes the live filesystem.
 
 ## Public interface
 
@@ -49,15 +49,17 @@ a caller describes the live filesystem.
 from pathlib import Path
 from contour_state import Controller, StateError
 
-controller = Controller(Path("/absolute/private-state/state.sqlite3"))
+controller = Controller(Path("/absolute/project/.contour/runtime/state.sqlite3"))
 controller.initialize(project_id, project_root, profile_digest)
 result = controller.apply(request)
 current = controller.status(task_id)
 ```
 
-Create the state parent directory before initialization. Keep state and execution
-logs outside the product snapshot root. Existing initialization succeeds only
-when project identity, canonical root, and profile digest agree.
+Create the state parent directory before low-level initialization; the workflow
+entry point prepares the standard `.contour/runtime/` layout. State and logs stay
+under the reserved `.contour/` subtree, outside product snapshots. Storage
+ancestors must be real directories, not symlinks. Existing initialization succeeds
+only when project identity, canonical root, and profile digest agree.
 
 Every request needs `op` and a unique `request_id`. Repeating the identical
 request returns its saved result with `replayed: true`; reusing the id with
@@ -93,14 +95,16 @@ observed state. Requests and individual JSON records are bounded to 4 MiB.
 - optional `dependencies: [{task_id, revision}]` and `workspace_root`.
 
 The workspace defaults to the initialized project root. A supplied workspace
-must be an existing absolute directory. The workflow adapter must additionally
-verify that it is the project root or a recorded prepared worktree of that
-repository. A directory name is not proof of repository identity.
+must be an existing absolute directory. The workflow adapter verifies that it is
+the project root or an actual Git worktree sharing that repository's common Git
+directory. Create working copies through native Git or host tools before
+assignment; a directory name is not proof of repository identity.
 
-Registration creates revision 1, sequence 1, state `clarifying`. States remain
+Registration creates revision 1, sequence 1, state `clarifying`. States are
 `clarifying`, `ready`, `running`, `proposed`, `accepted`, `blocked`, `paused`, and
-`closed`. Endpoint values remain `analysis`, `demo`, `patch`, `integrated`,
-`release-ready`, `deployed`, and `observed`.
+`closed`. Endpoint values are `analysis`, `demo`, `patch`, `integrated`,
+`release-ready`, `deployed`, and `observed`. These are this adapter's fields,
+not a mandatory classification step for all work using Contour.
 
 `transition` requires `to` and `reason`. Entering `ready`, `running`, `proposed`,
 or `accepted` also requires matching current candidate/profile digests and
@@ -111,8 +115,8 @@ cannot discard an incomplete attempt.
 
 `update-candidate` requires a new `candidate_digest` and `reason`. It preserves
 product revision and cumulative spend while invalidating old candidate evidence.
-It may also assign `workspace_root`, with `assignment_ref` identifying the
-prepared worktree/integration result. It cannot discard pending attempts or
+It may also assign an existing `workspace_root`, with `assignment_ref` identifying
+the observed native worktree or integration result. It cannot discard pending attempts or
 change an accepted/closed revision. The operation does not clear stale
 dependencies. A changed candidate from `proposed` returns to `running`.
 When an owner exists, the same transaction moves its automatic workspace
@@ -159,9 +163,11 @@ changing a source digest alone cannot make them current again.
 between zero and one day, excluding zero. It returns a monotonic `generation`.
 Optional `access` is `write` by default or `read`. The controller always adds
 `workspace:<canonical absolute root>`; callers cannot supply that reserved
-namespace. Equal, ancestor and descendant canonical workspace paths overlap;
-different explicit resource names cannot evade that ownership. One unreleased
-owner can hold each task.
+namespace. Equal, ancestor and descendant product workspace paths overlap.
+The project's reserved `.contour/worktrees/` descendants are independent of its
+main product workspace; equal or nested worktree paths still conflict. The workflow
+verifies actual existing Git worktree identity before assignment. Different explicit
+resource names cannot evade ownership. One unreleased owner can hold each task.
 
 Read claims may share overlapping workspaces only when no write owner holds one; a writer
 conflicts with every existing reader or writer. A pure read claim may use
@@ -200,12 +206,12 @@ executor. It includes project/task/revision, workspace, candidate/profile,
 criterion ids, worker/generation, operation, and attempt identity. Effect attempts
 also bind immutable effect identity and digest.
 
-Prepared `git-worktree` and `git-integrate` attempts require an adapter-supplied
-`workspace_destination`: a fresh absolute path with an existing parent. Admission
-requires a write claim and reserves the canonical destination in that claim
-before any Git mutation. The returned binding pins that destination. Assignment
-removes the old workspace reservation while preserving generation and explicit
-resources; other reserved destinations remain held until observed release.
+Workspace claims apply to existing assigned working copies. The controller does
+not create Git worktrees, integrate commits or reserve a destination before a
+native Git operation. The coordinator controls creation and observes its result,
+then assigns the existing workspace before dispatching a writer. Reassignment
+moves the current workspace reservation while preserving generation, explicit
+resources and expenditure.
 
 `finish-attempt` requires attempt id, worker/generation, and actual receipt.
 Matching duplicate receipts are idempotent; conflicting terminal results fail.
@@ -314,7 +320,8 @@ tasks onto the new profile before running them. The workflow adapter must retain
 its own durable intent and reconcile any mismatch between the profile file and
 database; replacing a file alone cannot update task evidence.
 
-`backup` requires a fresh absolute `destination`. It uses SQLite's backup API,
+`backup` requires a fresh absolute `destination`; place new backups under
+`.contour/`, for example `.contour/runtime/backups/<unique-id>.sqlite3`. It uses SQLite's backup API,
 checks the result, and never overwrites an existing file. The backup represents a
 consistent snapshot before its own backup event. A crash after copying but before
 recording completion may leave the fresh backup file; inspect it and choose a new
@@ -328,17 +335,8 @@ Never delete state to resolve a profile or schema conflict.
 
 ## Failure checks
 
-Run the supplied controller suite from `scripts`:
-
-```bash
-python3 -m unittest -v test_contour_state
-```
-
-It exercises multi-process claim contention, stale comparisons, uncommitted crash
-rollback, bounded lock failure, durable attempt recovery, ownership generations,
-dependency cycles/staleness, receipt conflicts, actual test predicates, workspace
-assignment, budget persistence, unknown/partial effects, profile reconfiguration,
-and consistent non-overwriting backup. These checks qualify the local controller;
-they do not establish hardware power-loss guarantees or qualify an unexecuted
-agent/remote-service adapter.
+When changing state behavior, check affected ownership, stale-state, recovery,
+evidence and budget contracts, including concurrent or interrupted operations.
+Preserve existing state while exercising failure cases. Local process checks do
+not establish hardware power-loss guarantees or qualify an unexecuted remote adapter.
 
