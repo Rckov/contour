@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "data_kind": "synthetic-example-not-a-benchmark",
+  "currency": "USD",
+  "units": [
+    {
+      "id": "example-trajectory-1",
+      "variant": "demonstration",
+      "accepted": true,
+      "attempts": 2,
+      "total_cost": 2,
+      "human_hours": 0.1,
+      "elapsed_seconds": 100,
+      "total_tokens": 1000
+    },
+    {
+      "id": "example-trajectory-2",
+      "variant": "demonstration",
+      "accepted": false,
+      "attempts": 1,
+      "total_cost": 3,
+      "human_hours": 0.2,
+      "elapsed_seconds": 200,
+      "total_tokens": 2000
+    }
+  ]
+}

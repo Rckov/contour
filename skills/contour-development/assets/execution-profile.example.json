@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "project_id": "replace-with-project-id",
+  "environment_id": "replace-with-verified-local-environment",
+  "authority_ref": "replace-with-existing-task-authority",
+  "acceptor": "replace-with-actual-acceptor",
+  "reviewed_ref": "replace-with-profile-review-record",
+  "host_mode": "native",
+  "snapshot_paths": ["."],
+  "checks": [
+    {
+      "id": "unit-tests",
+      "kind": "unittest",
+      "discover": "tests",
+      "pattern": "test*.py",
+      "minimum_passed": 1,
+      "timeout_seconds": 120,
+      "output_limit_bytes": 1048576,
+      "snapshot_paths": ["."]
+    }
+  ],
+  "context7": {
+    "required_for_external_docs": true,
+    "status": "not-needed-yet"
+  }
+}

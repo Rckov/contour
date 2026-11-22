@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "BUG-001",
+  "project_id": "example-project",
+  "revision": 1,
+  "state": "ready",
+  "goal": "Fix the agreed case without changing behavior for other consumers",
+  "endpoint": "patch",
+  "authorization_ref": "user-task-reference",
+  "acceptor": "coordinator",
+  "environment_id": "local-project-environment-v1",
+  "scope": ["src/", "tests/"],
+  "preserve": ["The existing public contract outside the specified defect"],
+  "dependencies": [],
+  "criteria": [
+    {
+      "id": "C1",
+      "revision": 1,
+      "description": "The observed defect is fixed and relevant existing behavior is preserved",
+      "method": "test",
+      "waiver_allowed": false,
+      "waiver_authorities": []
+    }
+  ]
+}

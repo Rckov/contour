@@ -1,0 +1,53 @@
+{
+  "schema_version": 2,
+  "currency": "USD",
+  "variants": ["baseline", "candidate"],
+  "units": [
+    {
+      "id": "synthetic-baseline-trajectory",
+      "variant": "baseline",
+      "case_id": "synthetic-feature-case",
+      "repeat_id": "synthetic-repeat-1",
+      "criteria_ref": "synthetic/criteria-v1",
+      "source_ref": "synthetic/whole-trajectory-baseline",
+      "accepted": true,
+      "expected_attempt_ids": ["synthetic-baseline-attempt-1"],
+      "attempts": [
+        {
+          "id": "synthetic-baseline-attempt-1",
+          "source_ref": "synthetic/observations/baseline-attempt-1",
+          "outcome": "completed",
+          "total_tokens": 100,
+          "total_cost": 2,
+          "elapsed_seconds": 5
+        }
+      ],
+      "overhead_cost": 0,
+      "human_hours": 0.25,
+      "elapsed_seconds": 6
+    },
+    {
+      "id": "synthetic-candidate-trajectory",
+      "variant": "candidate",
+      "case_id": "synthetic-feature-case",
+      "repeat_id": "synthetic-repeat-1",
+      "criteria_ref": "synthetic/criteria-v1",
+      "source_ref": "synthetic/whole-trajectory-candidate",
+      "accepted": false,
+      "expected_attempt_ids": ["synthetic-candidate-attempt-1", "synthetic-candidate-attempt-2"],
+      "attempts": [
+        {
+          "id": "synthetic-candidate-attempt-1",
+          "source_ref": "synthetic/observations/candidate-attempt-1",
+          "outcome": "failed",
+          "total_tokens": null,
+          "total_cost": null,
+          "elapsed_seconds": 4
+        }
+      ],
+      "overhead_cost": 0,
+      "human_hours": null,
+      "elapsed_seconds": 9
+    }
+  ]
+}

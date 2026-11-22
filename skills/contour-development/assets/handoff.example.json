@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "task_id": "BUG-001",
+  "task_revision": 1,
+  "basis_ref": "actual-snapshot-reference",
+  "authorization_ref": "user-task-reference",
+  "artifact_refs": [],
+  "evidence_refs": [],
+  "unknowns": [],
+  "owners": ["coordinator"],
+  "active_processes": [],
+  "effects": [],
+  "budget": {"spent": 0, "limit": 1, "unit": "example-only-replace-with-project-budget"},
+  "next_step": "Reconcile the live state and continue the specific authorized step"
+}

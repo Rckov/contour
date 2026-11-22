@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "status": "illustrative-source-map",
+  "project_id": "issueboard",
+  "methodology_version": "1.0",
+  "purpose": "Maintain a local issue list used through a browser and Python client.",
+  "paths_relative_to": "a hypothetical issue board project root; substitute paths from the actual project",
+  "sources": {
+    "accepted_behavior": "SPEC.md",
+    "consumer_contract": "docs/API.md",
+    "storage_and_migrations": "issueboard/store.py",
+    "http_boundary": "issueboard/server.py",
+    "consumers": ["issueboard/client.py", "issueboard/static/index.html"],
+    "existing_checks": "tests/"
+  },
+  "persistent_constraints": [
+    "Preserve stored issues across schema migration.",
+    "Keep optimistic concurrency meaningful for both consumers."
+  ],
+  "prior_decision": "Keep exact decimal IDs and versions in the browser. Rounding through a JavaScript Number can select the wrong item or send an incorrect If-Match precondition. See docs/API.md.",
+  "continuation_example": {
+    "open_question": "Which consumer checks cover a change at the storage boundary?",
+    "owner": "agent assigned the change",
+    "next_observation": "Trace the affected field from the store through HTTP to each consumer and inspect its tests."
+  },
+  "authority_source": "current assignment and applicable project rules",
+  "shared_write_policy": "coordinate changes to the shared HTTP contract before editing consumers"
+}

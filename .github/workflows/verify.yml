@@ -1,0 +1,39 @@
+name: Verify and package Contour
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: "3.12"
+      - name: Build the ZIP from the checked-out commit
+        run: git archive --format=zip --prefix=contour-1.0/ --output="$RUNNER_TEMP/contour-1.0.zip" HEAD
+      - name: Verify the extracted distribution and exercise the shipped commands
+        run: |
+          python -B -m zipfile -t "$RUNNER_TEMP/contour-1.0.zip"
+          python -B -m zipfile -e "$RUNNER_TEMP/contour-1.0.zip" "$RUNNER_TEMP/extracted"
+          cd "$RUNNER_TEMP/extracted/contour-1.0"
+          skill=skills/contour-development
+          python -B "$skill/scripts/contour_ops.py" verify-package --root .
+          python -B "$skill/scripts/contour_ops.py" eval-summary --file "$skill/assets/evaluation.example.json"
+          python -B "$skill/scripts/contour_context.py" --root . inspect
+          python -B "$skill/scripts/contour_workflow.py" --help
+      - name: Retain the verified ZIP
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: contour-1.0
+          path: ${{ runner.temp }}/contour-1.0.zip
+          if-no-files-found: error
