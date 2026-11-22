@@ -1,0 +1,8 @@
+{
+  "name": "contour",
+  "description": "Contour for structured software development.",
+  "owner": { "name": "Rckov" },
+  "plugins": [
+    { "name": "contour", "source": "./" }
+  ]
+}

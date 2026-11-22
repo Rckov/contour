@@ -2,7 +2,7 @@ name: Release Contour
 
 on:
   push:
-    tags: [v1.0]
+    tags: ['v*']
 
 permissions:
   contents: write
@@ -15,13 +15,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - name: Build and publish the source archive
+      - name: Build and publish the plugin
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          version="$(jq -er '.version' plugin.json)"
+          test "$GITHUB_REF_NAME" = "v$version"
+          test "$(jq -er '.version' .claude-plugin/plugin.json)" = "$version"
           mkdir -p .contour/release
-          git archive --format=zip --prefix=contour-1.0/ \
-            --output=.contour/release/contour-1.0.zip HEAD
-          gh release create "$GITHUB_REF_NAME" .contour/release/contour-1.0.zip \
-            --verify-tag --title "Contour 1.0" --generate-notes
+          archive=".contour/release/contour-$version.zip"
+          git archive --format=zip --output="$archive" HEAD
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$archive" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$archive" \
+              --verify-tag --title "Contour $version" --generate-notes
+          fi

@@ -10,7 +10,7 @@ dependencies:
     value: "context7"
     description: "Versioned library and API documentation with source-match verification"
     transport: "streamable_http"
-    url: "https://mcp.context7.com/mcp"
+    url: "https://mcp.context7.com/mcp/oauth"
 policy:
   allow_implicit_invocation: false
   products:
