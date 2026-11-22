@@ -15,21 +15,18 @@ Constraints: <what must be preserved>
 Expected result: <what to deliver>
 ```
 
-## Workflow
+## How it works
 
 ```mermaid
 flowchart LR
-    P["Project context"] --> B["Understand the task"]
-    Q["Your request"] --> B
-    B --> A["Do the work"]
-    A --> C["Check the result"]
-    C -->|Needs work| A
-    A -->|Plan needs revision| B
-    C -->|Criteria met| H["Hand over the result"]
-    H -->|Decisions to retain| P
+    A["Requested result and relevant context"] --> B["Choose the next step and checks"]
+    B --> C["Work directly"]
+    B -.->|When useful| S["Delegate and combine results"]
+    S --> D
+    C --> D["Verify the result"]
+    D -->|More work needed| B
+    D -->|Requested result reached| E(["Deliver the result and evidence"])
 ```
-
-The agent loads procedures as needed, gives delegated work clear boundaries and checks the combined result. On resume, it reconciles current files, decisions and unfinished work.
 
 ## Project files
 
