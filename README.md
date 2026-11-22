@@ -1,4 +1,4 @@
-# Contour 1.3.0
+# Contour
 
 Contour gives coding agents a consistent way to investigate a project, make changes and check the result. It follows the project's existing instructions and tools. Extra coordination is used when work spans agents or sessions.
 
@@ -72,7 +72,7 @@ flowchart LR
 
 ## Project files
 
-Small changes can finish without a `.contour/` directory. When work spans sessions or owners, `.contour/work.md` holds the goal, constraints and decisions. Start from `.contour/work.json` for the current state and follow its active task IDs. Tasks, handoffs and reports get their own files only when they need independent updates or retention. Product code, tests and public documentation stay in their usual locations.
+When work spans sessions, `.contour/work.md` explains the goal and key decisions. `.contour/work.json` shows where to pick up.
 
 The optional execution tools keep their state in `.contour/runtime/`. Python is needed only when using the optional tools. Local records are ignored by Git by default; deliberately share the records needed to continue in another environment.
 
