@@ -6,7 +6,7 @@
   "release": "standalone-skill",
   "files": {
     "LICENSE": "deb2b830c870b7231481fa23e331805d778ec99ee0657edc0b580ebe51b5a096",
-    "README.md": "2c14ec04fa69cdb2a3d2002233ea00dfadd05c6566b1342cfdbe1159c68cb4b0",
+    "README.md": "0ff8a7f74d4246722f7c7455036bfe3130741f7f00e8d8394799b5ed17706629",
     "skills/contour-development/agents/openai.yaml": "34ebb03d026d50e84d55b092c03e2a93f4086dd8e6318d0b58cf45000583f8d0",
     "skills/contour-development/assets/evaluation-partial.example.json": "9698872f834db197edae725b94610f680c2c603a4b2a85cfc20963641679deb5",
     "skills/contour-development/assets/evaluation.example.json": "84bf460caf39d57cff4742b913ca5bf9a85d2d69c99a45ae81565be21fae2a78",
