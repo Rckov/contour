@@ -10,7 +10,7 @@ Install Contour for your coding agent:
 <summary>Codex CLI</summary>
 
 ```bash
-codex plugin marketplace add Rckov/Contour-AI-Methodology
+codex plugin marketplace add Rckov/contour
 codex plugin add contour@contour
 ```
 
@@ -24,7 +24,7 @@ Start a new session after installation. The plugin is also available to supporte
 Run these commands inside Claude Code:
 
 ```text
-/plugin marketplace add Rckov/Contour-AI-Methodology
+/plugin marketplace add Rckov/contour
 /plugin install contour@contour
 ```
 
@@ -61,13 +61,13 @@ Expected result: <what to deliver>
 
 ```mermaid
 flowchart LR
-    A["Requested result and relevant context"] --> B["Choose the next step and checks"]
-    B --> C["Work directly"]
-    B -.->|When useful| S["Delegate and combine results"]
+    A\["Requested result and relevant context"] --> B\["Choose the next step and checks"]
+    B --> C\["Work directly"]
+    B -.->|When useful| S\["Delegate and combine results"]
     S --> D
-    C --> D["Verify the result"]
+    C --> D\["Verify the result"]
     D -->|More work needed| B
-    D -->|Requested result reached| E(["Deliver the result and evidence"])
+    D -->|Requested result reached| E(\["Deliver the result and evidence"])
 ```
 
 ## Project files
@@ -75,9 +75,5 @@ flowchart LR
 Contour keeps its working notes, plans, handoffs and check reports in your project's `.contour/` directory. It creates them only when the work needs a durable record; `.contour/work.md` is the usual starting point. Source code, product tests and public documentation use the project's normal layout.
 
 The optional execution tools keep their state in `.contour/runtime/`. Python is needed only when using the optional tools. Local records are ignored by Git by default; deliberately share the records needed to continue in another environment.
-
-## Releases
-
-Commit and push the changes, then push a tag matching the version in both plugin manifests, such as `v1.1.0`. The release workflow attaches `contour-1.1.0.zip` to GitHub Releases. The archive contains the plugin, the standalone skill, and this repository's sources. Re-running the workflow replaces its archive in the same release.
 
 [Methodology](skills/contour-development/references/methodology.md) · [Optional tools](skills/contour-development/references/runtime-workflow.md) · [Sources](skills/contour-development/references/source-provenance.md) · [MIT license](LICENSE)
