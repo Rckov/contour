@@ -4,7 +4,7 @@
   "environment_id": "replace-with-verified-local-environment",
   "authority_ref": "replace-with-existing-task-authority",
   "acceptor": "replace-with-actual-acceptor",
-  "reviewed_ref": ".contour/work.md#replace-with-actual-profile-review",
+  "reviewed_ref": "replace-with-existing-profile-review-reference",
   "host_mode": "native",
   "snapshot_paths": [
     "."

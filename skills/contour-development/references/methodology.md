@@ -1,6 +1,6 @@
 # Contour — software development with AI
 
-Contour 1.0, 22 November 2026. Purpose: connect software work with the result the user needs, the current basis for acting and evidence of completion. Work may involve understanding a system, resolving a decision, changing it or carrying a complete product through release and support. One agent or several may perform it. Responsibilities apply according to the actual consequences; task labels do not prescribe a workflow.
+Contour 1.3.0, 23 November 2026. Purpose: connect software work with the result the user needs, the current basis for acting and evidence of completion. Work may involve understanding a system, resolving a decision, changing it or carrying a complete product through release and support. One agent or several may perform it. Responsibilities apply according to the actual consequences; task labels do not prescribe a workflow.
 
 The skill provides working instructions, linked engineering procedures and optional prepared operations. This reference owns the common rules; the procedures own their detailed engineering steps. Load the section needed for the current decision rather than rereading the full method. Technical guarantees depend on the host, chosen tools and evidence for the current task.
 
@@ -78,7 +78,34 @@ These are responsibilities that may be combined. Mutual review by two agents usi
 
 Treat project context as decisions and facts that survive a task. Start with the existing project sources and identify which facts constrain the assignment, what evidence would settle the remaining questions and who needs the result. Update actual product sources when the assignment changes their content; link them from the work record rather than duplicating them. The [optional source map](../assets/project-profile.example.json) illustrates this distinction using a connected application.
 
-Keep every Contour-created project plan, decision note, handoff, review note, report and execution record under the project's root `.contour/`. Create a record only when another session, worker, shared owner or interrupted effect needs durable continuity. Usually maintain one concise `.contour/work.md` or an existing record there: current outcome and constraints, material decisions and reasons, evidence links and limits, open obligations and owners, active processes/effects, and next permitted step. Preserve relevant authorization and expenditure when they affect continuation. Use sections or links as needed; do not create one document per activity or copy the transcript.
+Keep Contour working records under the project's root `.contour/`. A small fix can use the request, diff and test output directly. Create each file and its parent directory only once a reader needs it.
+
+- `work.md` holds the shared goal, binding constraints, a short approach if useful, and material decisions with their reasons. Link authoritative product or ticket text where it already exists.
+- `work.json` is the coordinator's entry for operational continuity. Give it a short overall `state` in the project's terms. Add `phase` when it identifies the current activity, `active` for the task IDs in focus, `refs` for a list of source locators, and `blocker` or `next_step` only for work-wide coordination. A blocker identifies what is missing, who can resolve it and the condition for continuing. A single interrupted edit might need just `{"state":"paused","next_step":"Run the existing import check on the edited parser"}`. Keep task status, backlog and history in their owning sources.
+- Create `tasks/<id>.json` when an assignment has its own dependencies, writer, checks or continuation. Its filename supplies its stable ID (ASCII letters, digits, underscores and hyphens; use exact case in references and avoid case-only differences or platform-reserved names). Start with its local `goal` and `state`. Record acceptance conditions and write scope as needed. A consumer lists prerequisite task IDs in `dependencies`; verify the accepted output at the revision or candidate the consumer needs. Pin that basis in the consumer when a later change could invalidate its work. Put the assigned writer and mutable results in `progress`. When a ticket or the local controller already owns an assignment, point to its actual locator in `refs` and consult that system for active tasks, claims and results.
+- A worker can return a short object in the agreed channel. Keep durable results in the task's `progress`. For example, an entry in `checks` identifies the criterion, candidate, observed outcome and primary evidence where available. Use `reports/<name>.json` for a shared review, a large independent check or a gate evidence envelope. Use `handoffs/<name>.json` when a transfer needs a separate writer or lifetime. Include the task ID, basis, result or artifact reference, open effects and next action as applicable. Link each separate record from its consumer. Use the existing [operation input formats](operations.md#evidence-and-gate) when a mechanical gate or formal handoff is selected.
+
+For example, the navigator can select an integration task:
+
+```json
+{"state": "in progress", "phase": "integration", "active": ["T002"]}
+```
+
+Its file `tasks/T002.json` could contain:
+
+```json
+{
+  "goal": "Use the parser from T001 in the import command",
+  "state": "running",
+  "dependencies": ["T001"],
+  "scope": ["cli/import.py"],
+  "progress": {"owner": "cli-worker", "handoff": "handoffs/T002-return.json"}
+}
+```
+
+Resolve working-file paths from `.contour/` and product paths from the project root. Keep external source locators and the reference base of existing records. Keep task IDs stable. Publish each file before linking it, and use an atomic save when replacing JSON. Update live references before retiring a file and preserve evidence cited for earlier candidates.
+
+The coordinator owns both entry files and assigns one writer per task. Publish the assignment and active pointer before dispatch. On return, reconcile the worker's changes and update the task before advancing the navigator. Search dependencies for affected consumers when a prerequisite changes.
 
 Keep the installed skill outside application scaffolding. Product source, product tests, consumer API documentation and requested product guides remain in their established project locations. Existing tickets, conversations and CI are useful sources; refer to them without scattering new methodology records into those systems or the project root. An equivalent durable platform log may own an external-effect record without a duplicate local journal.
 
@@ -86,7 +113,9 @@ When first creating `.contour/`, ensure it is a real directory and create `.cont
 
 The optional local workflow uses `.contour/runtime/` for configuration, SQLite state, runs and packets. Native Git or host tools create isolated working copies under `.contour/worktrees/` only when the work needs them. Product snapshots declare and exclude only the reserved root `.contour/` subtree, so never put material product inputs there. Other ignored inputs and nested product directories named `.contour` retain their usual selection semantics. Root `.contour` and storage ancestors must not be symlinks. Resolve an existing product-input conflict before enabling this exclusion; never discard files merely to fit the layout.
 
-Git cloning does not carry ignored records or live processes. For a new session or environment, deliberately carry the current work record and necessary project facts within `.contour/`, then reconcile them with the actual checkout, environment and any unfinished effects. A full controller transfer additionally needs consistent state and its referenced artifacts. Missing history remains unknown; do not reconstruct approvals, outcomes or spend from guesses.
+On resume, read the entry files, then the selected task, its relevant dependencies and evidence. Check the checkout, actual owners, budget and unfinished effects. Reconcile a stale pointer with its source before proceeding. After an interrupted update or when the navigator fails to identify known open work, inspect task filenames and unfinished assignments, including any published just before the interruption. Repair the navigator from complete records and confirm ownership before redispatch.
+
+For an older note, preserve cited anchors and move verified operational facts to their current owners. Transfer the relevant entry files and linked records when moving between environments. A controller transfer also needs consistent state and its referenced artifacts. Missing history remains unknown.
 
 | Logical source | Content | Consumer |
 |---|---|---|
@@ -184,7 +213,7 @@ Attempt counts and expenditure carry across sessions, executors, and revisions. 
 
 ## 9 Resuming after an interruption
 
-A resumption checkpoint in the existing `.contour` record preserves the task and revision; current intent; plan and owners; artifacts and uncommitted changes; decisions and assumptions; evidence and gaps; active processes; known and unknown effects; expenditure; and next permitted step. Carry only the applicable facts and links needed for safe continuation. Recovery does not require the model's internal chain of thought.
+On resumption, the entry files and their linked sources together account for the task and revision; current intent; plan and owners; artifacts and uncommitted changes; decisions and assumptions; evidence and gaps; active processes; known and unknown effects; expenditure; and next permitted step. Carry only the applicable facts and links needed for safe continuation. Recovery does not require the model's internal chain of thought.
 
 On resumption, the executor checks that references are accessible and inspects the actual state of the repository, environment, and processes. Reconcile the outcomes of mutations already initiated and check for a competing previous owner. If an outcome cannot be established, preserve its unknown status and apply the conditions in section 8 only to the affected action. Check that sources, authority, and evidence remain current. Then select the appropriate active state and continue only the work that is needed.
 
@@ -305,7 +334,7 @@ For each material condition, maintain the chain from requirement and version to 
 | NOT_RUN | It is known that the check was not performed |
 | INCONCLUSIVE | Observations conflict or do not support the required conclusion |
 
-Lost evidence is unconfirmed; loss alone does not prove nonexecution. A successful wrapper, empty selection or skipped job does not establish that checks ran. Evidence identifies the checked artifact and inputs, criterion, method and completion, relevant environment, result, primary observations, limitations and origin. Existing source, CI or tool output may already provide this information. Link it from the `.contour` record when needed; a duplicate report adds no assurance.
+Lost evidence is unconfirmed; loss alone does not prove nonexecution. A successful wrapper, empty selection or skipped job does not establish that checks ran. Evidence identifies the checked artifact and inputs, criterion, method and completion, relevant environment, result, primary observations, limitations and origin. Existing source, CI or tool output may already provide this information. Link it from the owning task when needed; a duplicate report adds no assurance.
 
 Reassess evidence when code, tests, expected behavior, configuration, dependencies, environment or integration basis changes. Reuse only applicable evidence and retain flaky attempts. A baseline failure remains a failure; establish independence from the change on a comparable basis. A later green retry does not erase contradictory observations. The local runner additionally requires its exact candidate and profile bindings.
 
@@ -423,7 +452,7 @@ The package provides one entry point and the following logical modules. Each pro
 | Delivery and ongoing support | Release, observation, incidents, migrations, and end of support |
 
 
-When maintaining Contour, review changed instructions, source attribution, shared formats and operations against representative tasks and relevant failure cases. Keep assessment evidence inside `.contour/`; do not include temporary verification files in the package. The release workflow packages the source and makes no claim of instruction or product validation. Permanent instructions remain separate from operational project state.
+When maintaining Contour, review changed instructions, source attribution, shared formats and operations against representative tasks and relevant failure cases. Keep any durable Contour assessment under `.contour/`. Use a permitted temporary location for disposable verification files and exclude them from the package. The release workflow packages the source and makes no claim of instruction or product validation. Permanent instructions remain separate from operational project state.
 
 | Qualification gate | Condition |
 |---|---|
@@ -454,6 +483,6 @@ Before an external effect, record its durable identity, material parameters, aut
 
 Local execution tests, connected application outcomes, behavior trials, independent reviews and archive verification support their recorded scope. Claims of economic superiority, quality no worse on arbitrary applications, or reliable fully autonomous operation require the controlled study in section 19. Provider usage is unknown when the host supplies no telemetry; context bytes are not token billing. Graph remains off without measured full-task benefit. A successful pilot or the author's known tests does not establish universal equivalence.
 
-Contour 1.0 uses local record and runtime database schema 1. Evaluation inputs support schemas 1 and 2. The compact check and plan envelope is opt-in. New runtime state uses `.contour/runtime/`; preserve existing state at its current control path, reconcile active owners and pending effects, and use explicit reconfiguration when necessary. The [source inventory](source-provenance.md) identifies the adaptations and the limits of their provenance.
+The optional gate, formal handoff and runtime database retain schema 1. Evaluation inputs support schemas 1 and 2. The compact check and plan envelope is opt-in. New runtime state uses `.contour/runtime/`; preserve existing state at its current control path, reconcile active owners and pending effects, and use explicit reconfiguration when necessary. The [source inventory](source-provenance.md) identifies the adaptations and the limits of their provenance.
 
 An update preserves the exact bytes of the previous package, compatibility scope, and a recovery path. Professional use means a known scope, a verifiable basis for decisions, observable results, and honest limitations; a version number by itself creates no guarantees.

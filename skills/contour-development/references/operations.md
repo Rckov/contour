@@ -38,7 +38,7 @@ Exit codes: `0` means the operation produced a result according to its purpose; 
 
 | Operation | Arguments | Result and limit |
 |---|---|---|
-| `doctor` | `--root` | Known files at the root, Git/HEAD, and Python. Does not recursively discover instructions or check permissions or Context7. |
+| `doctor` | `--root`, optional `--work` | Known files at the root, Git/HEAD, and Python. With `--work`, also locates the semantic context and reads the operational navigator. Does not recursively discover instructions or check permissions or Context7. |
 | `snapshot` | `--root --project-id`, repeatable `--path` | SHA-256 of selected actual files, executable bit, inventory, and limitations. Observation is not atomic and excludes the external environment. |
 | `scope` | `--before --after`, repeatable `--allow`, `--protect` | Changes to selected files, scope violations, and control changes. Shared semantic resources require separate inspection. |
 | `gate` | `--task --snapshot`, optional `--evidence` | Without evidence, prepares a binding before verification. With evidence, checks identity, states, criteria, completeness, and waivers permitted by the supplied data. Returns `admission: NOT_DECIDED`; it does not accept the product. |
@@ -47,7 +47,7 @@ Exit codes: `0` means the operation produced a result according to its purpose; 
 | `eval-summary` | `--file` | Descriptive complete or partial observations for whole trajectories and their attempts. Unknown values stay unknown. Does not acquire telemetry or establish statistical superiority. |
 | `verify-package` | `--root`, `--manifest` defaults to `MANIFEST.json` | Complete file inventory and SHA-256 comparison against the supplied manifest. Does not authenticate the publisher or prove behavior. |
 
-Use `verify-package` only when the project's existing release process supplies a manifest; its paths are relative to the supplied root. Contour does not require or ship a package manifest.
+To verify an extracted Contour release, use `verify-package --root . --manifest skills/MANIFEST.json` from the archive root. Manifest paths and checksums describe the packaged bytes.
 
 ## Snapshot and scope
 
@@ -63,7 +63,7 @@ Limits: JSON input up to 16 MiB, up to 20,000 files, each file up to 64 MiB, obs
 
 ## Evidence and gate
 
-When the project chooses this gate, supply its actual task record in the format shown in [task.example.json](../assets/task.example.json). Use the project's criteria and authority. Schema 1 fields are `id`, `project_id`, `revision`, `state`, `goal`, `endpoint`, `authorization_ref`, `acceptor`, `environment_id`, and `criteria`. Additional contract fields are also included in the digest. The digest excludes only `state`, `progress`, and `next_step`.
+When the project chooses this gate, supply its actual task record in the format shown in [task.example.json](../assets/task.example.json). Use the project's criteria and authority. Ordinary file-backed tasks need only the fields used by their readers. For this gate and the formal `handoff` command, use the full schema 1 contract in the same task file. Its `id` must match the filename stem under `tasks/`. Schema 1 fields are `id`, `project_id`, `revision`, `state`, `goal`, `endpoint`, `authorization_ref`, `acceptor`, `environment_id`, and `criteria`. Additional contract fields are also included in the digest. The digest excludes only `state`, `progress`, and `next_step`. Put mutable check results and links to reports or handoffs in `progress`. The digest covers the literal references. If the requirement in `work.md` or the accepted output behind a dependency ID changes materially, revise the dependent task and recheck affected criteria even when the path or ID stays the same.
 
 Before verification, call `gate --task ... --snapshot ...` without evidence. It returns `expected_binding` and an empty envelope. Preserve the binding with the actual primary results. Never attach an old PASS to a newly obtained digest. After verification, reconcile the actual candidate and relevant environment; if an input changed, rerun the affected check.
 
@@ -77,7 +77,11 @@ For a current criterion, all supplied applicable records must be successful and 
 
 ## Resume and effects
 
-`handoff` transfers facts without distorting them through summary. Effect statuses are `planned`, `sent`, `succeeded`, `failed`, `partial`, and `unknown`. Every effect has `reconcile_next`; a completed effect records a verified basis for requiring no next action. For a partial result, preserve per-step outcomes in the record rather than replacing everything with one `failed`. Before a new effect, persist intent, material parameters, and identity in a durable source, or rely on a verified equivalent platform log.
+For local navigation use `doctor --root <project> --work`. The optional `work` result is null if `.contour/` is absent. Otherwise it contains the context path and parsed navigator, either of which can be null. The operation checks that each active ID names an existing `tasks/<id>.json`. It opens no task bodies, checks no indirect links and creates nothing. A malformed navigator or missing active target produces an input error. Reconcile it with the project sources.
+
+Use `handoff --task <task-file> --record <handoff-file>` when a transfer needs the existing [formal handoff](../assets/handoff.example.json) with a revision, authority, process, effect and budget reconciliation. Supply the full task contract to this operation. An ordinary worker reply needs only the result, basis, checks and unresolved items relevant to its receiver.
+
+Formal effect statuses are `planned`, `sent`, `succeeded`, `failed`, `partial`, and `unknown`. Every effect has `reconcile_next`; a completed effect records a verified basis for requiring no next action. For a partial result, preserve per-step outcomes in the record rather than replacing everything with one `failed`. Before a new effect, persist intent, material parameters, and identity in a durable source, or rely on a verified equivalent platform log.
 
 All eight operations only read inputs and emit a report. They may be repeated within the same authority, but each new report describes a new observation. An interrupted process may not emit complete stdout; do not accept truncated JSON. That error does not authorize deletion of a partial product or repetition of an external operation. Cancellation and retry of a project command follow that command's own contract.
 

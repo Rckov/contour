@@ -12,7 +12,7 @@ Use project commands. An ordinary regression test checks a product criterion in 
 
 ## Diagnosis
 
-1. Establish the symptom, conditions, expected behavior, and behavior to preserve; retain observations in the existing work record when needed for continuation.
+1. Establish the symptom, conditions, expected behavior, and behavior to preserve; keep observations needed for continuation in the owning task or its primary evidence.
 2. Distinguish a product defect from a runner, fixture, or environment failure and from an empty selection. A missing command is not a reproduced RED result.
 3. State a causal hypothesis and an observation that distinguishes it from alternatives. Use current sources. When external documentation is needed, follow the preparation procedure for versioned documentation.
 4. Perform a bounded, authorized check. Compare the baseline using relevant data, configuration, and the user's original changes. Do not reset the working tree; account for shared worktree resources.

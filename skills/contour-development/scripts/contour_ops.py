@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Contour 1.0: bounded local observations, not an authorization service.
+"""Bounded local observations for Contour.
 
 Only doctor/snapshot invoke Git, with fixed argument vectors. No shell, eval,
 network, code generation, test execution, or product-file mutation is provided.
@@ -20,7 +20,7 @@ import subprocess
 import sys
 import time
 
-VERSION = "1.0"
+VERSION = "1.3.0"
 MAX_JSON = 16 * 1024 * 1024
 MAX_FILE = 64 * 1024 * 1024
 MAX_TOTAL = 256 * 1024 * 1024
@@ -232,6 +232,32 @@ def root_path(value):
     return root
 
 
+def work_entry(root):
+    directory = contour_directory(root)
+    require(directory == root / CONTOUR_DIR, "root .contour must not redirect to another directory")
+    if not directory.exists():
+        return None
+    context = storage_path(directory / "work.md")
+    navigator = storage_path(directory / "work.json")
+    require(not context.exists() or context.is_file(), "work.md must be a regular file")
+    work = None
+    if navigator.exists():
+        work = obj(load_json(navigator), "work.json")
+        string(work.get("state"), "work.state")
+        active = array(work.get("active", []), "work.active")
+        require(len(active) <= MAX_FILES, "too many active task references")
+        seen = set()
+        for task_id in active:
+            string(task_id, "active task ID")
+            require(re.fullmatch(r"[A-Za-z0-9_-]+", task_id), "expected a portable task ID in work.active")
+            require(task_id.casefold() not in seen, f"duplicate active task: {task_id}")
+            seen.add(task_id.casefold())
+            name = f"tasks/{task_id}.json"
+            target = safe_file(directory, name).resolve(strict=True)
+            require(target.relative_to(directory).as_posix() == name, f"active task path must match exactly: {name}")
+    return {"context": ".contour/work.md" if context.exists() else None, "navigator": work}
+
+
 def doctor(args):
     root = root_path(args.root)
     top = fixed_git(root, ["rev-parse", "--show-toplevel"], optional=True)
@@ -239,12 +265,17 @@ def doctor(args):
     names = ["AGENTS.md", "CLAUDE.md", "package.json", "pyproject.toml", "Cargo.toml",
              "go.mod", "Makefile", "justfile", "pom.xml", "build.gradle", ".gitignore"]
     found = [name for name in names if (root / name).is_file() and not (root / name).is_symlink()]
-    return {"status": "OBSERVED", "root": str(root), "python": sys.version.split()[0],
-            "git_repository": top is not None,
-            "git_root_matches": bool(top and Path(os.fsdecode(top).strip()).resolve() == root),
-            "head": head.decode().strip() if head else None, "root_files": found,
-            "limitations": ["Root-level inventory only; read applicable parent/nested instructions separately.",
-                            "Commands were not parsed or executed; tool rights and Context7 were not tested."]}
+    result = {
+        "status": "OBSERVED", "root": str(root), "python": sys.version.split()[0],
+        "git_repository": top is not None,
+        "git_root_matches": bool(top and Path(os.fsdecode(top).strip()).resolve() == root),
+        "head": head.decode().strip() if head else None, "root_files": found,
+        "limitations": ["Root-level inventory only; read applicable parent/nested instructions separately.",
+                        "Commands were not parsed or executed; tool rights and Context7 were not tested."],
+    }
+    if getattr(args, "work", False):
+        result["work"] = work_entry(root)
+    return result
 
 
 def selected_files(root, paths, deadline=None):
@@ -448,8 +479,16 @@ def contract_digest(t):
     return digest({k: v for k, v in t.items() if k not in {"state", "progress", "next_step"}})
 
 
+def load_task(path):
+    record = task(load_json(path))
+    file = Path(path).resolve()
+    if file.parent.match(".contour/tasks"):
+        require(file.name == record["id"] + ".json", "task filename must match the contract ID")
+    return record
+
+
 def gate(args):
-    t = task(load_json(args.task))
+    t = load_task(args.task)
     s = checked_snapshot(load_json(args.snapshot))
     require(t["project_id"] == s["project_id"], "task/snapshot project mismatch")
     issues, observations, waived = [], [], []
@@ -533,7 +572,7 @@ def gate(args):
 
 
 def handoff(args):
-    t = task(load_json(args.task))
+    t = load_task(args.task)
     h = obj(load_json(args.record), "handoff")
     schema_one(h, "handoff")
     integer(h.get("task_revision"), "handoff.task_revision", 1)
@@ -901,6 +940,7 @@ def main(argv=None):
     sub = parser.add_subparsers(dest="operation", required=True)
     p = sub.add_parser("doctor", help="observe root files and Git availability")
     p.add_argument("--root", required=True)
+    p.add_argument("--work", action="store_true", help="read the work navigator and locate its active task files")
     p.set_defaults(function=doctor)
     p = sub.add_parser("snapshot", help="hash selected local inputs; ignored files need explicit selection")
     p.add_argument("--root", required=True)

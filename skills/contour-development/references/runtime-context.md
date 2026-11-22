@@ -46,7 +46,7 @@ Use `--max-output-bytes` to bound the complete compact JSON response. `search` a
 
 `inventory` and `search` exclude hidden paths and common dependency/cache directories by default. Inventory, search and inspection also omit root `.contour/` by default and report it in `coverage.excluded_root_paths`; this does not exclude a nested product directory such as `src/.contour/`. `--include-excluded` removes the root administrative exclusion, while `--include-hidden` and `--no-gitignore` remain independent. Reading root `.contour` through inventory/search normally needs all three; `inspect` already includes hidden names. Version-control metadata remains excluded. Do not infer absence from a filtered search.
 
-Use a direct `read .contour/work.md` for the shared work record without changing search filters. Context retrieval may inspect permitted records intentionally; product snapshots always reserve root `.contour/` for administrative state and reject it as a product selection.
+For continuity, read `.contour/work.md` and `.contour/work.json` directly when present, then request only the active task or sources needed. For example, `read .contour/tasks/T002.json` uses the same direct-read path as a source file. Product snapshots still exclude root `.contour/`.
 
 If the selected root is inside another Git worktree's root `.contour/`, inventory uses filesystem traversal instead of that enclosing repository's ignore policy. Coverage reports `git_scope: enclosing-administrative-tree`, `gitignore_applied: false` and the reason. Ordinary nested source directories and independently initialized repositories or linked worktrees retain their own applicable Git inventory.
 
