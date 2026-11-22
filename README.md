@@ -10,7 +10,7 @@ Install Contour for your coding agent:
 <summary>Codex CLI</summary>
 
 ```bash
-codex plugin marketplace add Rckov/Contour-AI-Methodology
+codex plugin marketplace add Rckov/contour
 codex plugin add contour@contour
 ```
 
@@ -24,7 +24,7 @@ Start a new session after installation. The plugin is also available to supporte
 Run these commands inside Claude Code:
 
 ```text
-/plugin marketplace add Rckov/Contour-AI-Methodology
+/plugin marketplace add Rckov/contour
 /plugin install contour@contour
 ```
 
@@ -78,6 +78,6 @@ The optional execution tools keep their state in `.contour/runtime/`. Python is 
 
 ## Releases
 
-Commit and push the changes, then push a tag matching the version in both plugin manifests, such as `v1.1.0`. The release workflow attaches `contour-1.1.0.zip` to GitHub Releases. The archive contains the plugin, the standalone skill, and this repository's sources. Re-running the workflow replaces its archive in the same release.
+Commit and push the changes, then push a tag matching the version in both plugin manifests, such as `v1.2.0`. The release workflow attaches `contour-1.2.0.zip` to GitHub Releases. The archive contains the plugin, the standalone skill, and this repository's sources. Re-running the workflow replaces its archive in the same release.
 
 [Methodology](skills/contour-development/references/methodology.md) · [Optional tools](skills/contour-development/references/runtime-workflow.md) · [Sources](skills/contour-development/references/source-provenance.md) · [MIT license](LICENSE)
