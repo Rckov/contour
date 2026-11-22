@@ -61,13 +61,13 @@ Expected result: <what to deliver>
 
 ```mermaid
 flowchart LR
-    A\["Requested result and relevant context"] --> B\["Choose the next step and checks"]
-    B --> C\["Work directly"]
-    B -.->|When useful| S\["Delegate and combine results"]
-    S --> D
-    C --> D\["Verify the result"]
+    A["Requested result and relevant context"] --> B["Choose the next step and checks"]
+    B --> C["Work directly"]
+    B -.->|When useful| S["Delegate and combine results"]
+    S --> D["Verify the result"]
+    C --> D
     D -->|More work needed| B
-    D -->|Requested result reached| E(\["Deliver the result and evidence"])
+    D -->|Requested result reached| E["Deliver the result and evidence"]
 ```
 
 ## Project files
